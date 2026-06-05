@@ -1,26 +1,138 @@
 @import "tailwindcss";
 
+/* ===== DESIGN TOKENS — BOLÃO NA MÃO (§7.1) ===== */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Backgrounds */
+  --bg-default: #FFFFFF;
+  --bg-surface: #F8F9FA;
+  --bg-elevated: #FFFFFF;
+
+  /* Brand */
+  --primary: #FFD700;
+  --primary-hover: #E6C200;
+  --primary-fg: #0A0A0A;
+
+  --verde-brasil: #009C3B;
+  --verde-brasil-hover: #007A2E;
+
+  --azul-brasil: #002776;
+
+  /* Text */
+  --text-primary: #0A0A0A;
+  --text-secondary: #6B7280;
+  --text-disabled: #9CA3AF;
+
+  /* Borders */
+  --border-color: #E5E7EB;
+  --divider-color: #F3F4F6;
+
+  /* Semantic */
+  --success: #16A34A;
+  --danger: #DC2626;
+  --warning: #F59E0B;
+  --info: #0EA5E9;
+
+  /* Pódio */
+  --gold: #FFD700;
+  --silver: #C0C0C0;
+  --bronze: #CD7F32;
+
+  /* === shadcn color system === */
+  --background: #FFFFFF;
+  --foreground: #0A0A0A;
+  --card: #FFFFFF;
+  --card-foreground: #0A0A0A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0A0A0A;
+  --primary-shadcn: #FFD700;
+  --primary-foreground: #0A0A0A;
+  --secondary-shadcn: #F3F4F6;
+  --secondary-foreground: #0A0A0A;
+  --muted: #F3F4F6;
+  --muted-foreground: #6B7280;
+  --accent-shadcn: #F3F4F6;
+  --accent-foreground: #0A0A0A;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #E5E7EB;
+  --input: #E5E7EB;
+  --ring: #FFD700;
+  --radius: 0.5rem;
 }
 
+/* ===== TAILWIND v4 THEME MAPPING ===== */
 @theme inline {
+  /* Fonts (variáveis injetadas pelo next/font no app/layout.tsx) */
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-bricolage);
+
+  /* shadcn compatibility */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary-shadcn);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary-shadcn);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent-shadcn);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Brand colors como utilitários diretos */
+  --color-brand-yellow: var(--primary);
+  --color-brand-yellow-hover: var(--primary-hover);
+  --color-brand-green: var(--verde-brasil);
+  --color-brand-green-hover: var(--verde-brasil-hover);
+  --color-brand-blue: var(--azul-brasil);
+
+  /* Semantic */
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+
+  /* Pódio */
+  --color-gold: var(--gold);
+  --color-silver: var(--silver);
+  --color-bronze: var(--bronze);
+
+  /* Tiers (§7.3) */
+  --color-tier-1: #2563EB;
+  --color-tier-2: #16A34A;
+  --color-tier-3: #CA8A04;
+  --color-tier-4: #EA580C;
+  --color-tier-5: #6B7280;
+
+  /* Surface */
+  --color-surface: var(--bg-surface);
+
+  /* Border radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ===== BASE ===== */
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: var(--ring);
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    background-color: var(--background);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }

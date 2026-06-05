@@ -1,0 +1,121 @@
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Container } from '@/components/layout/container'
+import { MatchCard } from '@/components/match-card'
+import { getMatchesByRound } from '@/lib/actions/matches'
+import { getBetsForMatch } from '@/lib/actions/bets'
+import { createClient } from '@/lib/supabase/server'
+import { isDeadlinePassed, isDeadlineSoon } from '@/lib/datetime'
+import type { Bet } from '@/types'
+
+export const revalidate = 60
+
+const ROUNDS = [1, 2, 3]
+
+export default async function RodadaPage({
+  params,
+}: {
+  params: Promise<{ n: string }>
+}) {
+  const { n } = await params
+  const round = Number(n)
+  if (!ROUNDS.includes(round)) notFound()
+
+  const matches = await getMatchesByRound(round)
+
+  // Usuário logado + meus palpites nesta rodada
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const matchIds = matches.map((m) => m.id)
+  const myBetByMatch = new Map<string, Bet>()
+  if (user && matchIds.length > 0) {
+    const { data: myBets } = await supabase
+      .from('bets')
+      .select('*')
+      .eq('user_id', user.id)
+      .in('match_id', matchIds)
+    for (const b of myBets ?? []) {
+      if (b.match_id) myBetByMatch.set(b.match_id, b as Bet)
+    }
+  }
+
+  // Palpites dos outros — só para jogos com deadline passado
+  const otherBetsByMatch = new Map<string, Awaited<ReturnType<typeof getBetsForMatch>>>()
+  await Promise.all(
+    matches
+      .filter((m) => m.deadline_at && isDeadlinePassed(m.deadline_at))
+      .map(async (m) => {
+        otherBetsByMatch.set(m.id, await getBetsForMatch(m.id))
+      }),
+  )
+
+  // Banner se algum jogo tem deadline < 1h
+  const hasSoonDeadline = matches.some(
+    (m) => m.deadline_at && isDeadlineSoon(m.deadline_at),
+  )
+
+  const prevRound = round > 1 ? round - 1 : null
+  const nextRound = round < 3 ? round + 1 : null
+
+  return (
+    <Container className="py-6">
+      <header className="mb-4">
+        <h1 className="font-display text-2xl font-bold">
+          Rodada {round} · Fase de Grupos
+        </h1>
+      </header>
+
+      {hasSoonDeadline && (
+        <div className="mb-4 rounded-xl bg-warning px-4 py-3 text-sm font-semibold text-black">
+          ⏱️ Ó o relógio! Tem jogo fechando em menos de 1h.
+        </div>
+      )}
+
+      {matches.length === 0 ? (
+        <p className="py-12 text-center text-muted-foreground">
+          Nenhum jogo nessa rodada ainda.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {matches.map((match) => (
+            <MatchCard
+              key={match.id}
+              match={match}
+              myBet={myBetByMatch.get(match.id) ?? null}
+              otherBets={otherBetsByMatch.get(match.id) ?? []}
+              currentUserId={user?.id}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Navegação entre rodadas */}
+      <nav className="mt-6 flex items-center justify-between">
+        {prevRound ? (
+          <Link
+            href={`/grupos/rodada/${prevRound}`}
+            className="flex items-center gap-1 text-sm font-medium text-brand-blue"
+          >
+            <ChevronLeft className="h-4 w-4" /> Rodada {prevRound}
+          </Link>
+        ) : (
+          <span />
+        )}
+        {nextRound ? (
+          <Link
+            href={`/grupos/rodada/${nextRound}`}
+            className="flex items-center gap-1 text-sm font-medium text-brand-blue"
+          >
+            Rodada {nextRound} <ChevronRight className="h-4 w-4" />
+          </Link>
+        ) : (
+          <span />
+        )}
+      </nav>
+    </Container>
+  )
+}
