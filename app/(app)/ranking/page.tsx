@@ -4,6 +4,7 @@ import { Trophy } from 'lucide-react'
 import { Container } from '@/components/layout/container'
 import { RankingPodium } from '@/components/ranking-podium'
 import { RankingList } from '@/components/ranking-list'
+import { ShareRankingButton } from '@/components/share-ranking-button'
 
 export const revalidate = 60
 
@@ -32,6 +33,10 @@ export default async function RankingPage() {
       ) : (
         <>
           <RankingPodium entries={podiumEntries} />
+
+          <div className="flex justify-end px-1 -mt-2 mb-3">
+            <ShareRankingButton entries={ranking} currentUserId={user?.id} />
+          </div>
 
           <div className="border-t border-border my-2" />
 
