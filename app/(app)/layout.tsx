@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { TopNav } from '@/components/layout/top-nav'
 import { GlobalBanner } from '@/components/global-banner'
+import { PushManager } from '@/components/push-manager'
 import type { BannerConfig } from '@/types'
 
 async function getBanner(): Promise<BannerConfig | null> {
@@ -32,6 +33,7 @@ export default async function AppLayout({
 
   return (
     <>
+      <PushManager />
       <TopNav />
       {banner && <GlobalBanner config={banner} />}
       <main className="flex-1 pb-20 md:pb-0">{children}</main>

@@ -21,7 +21,7 @@ export function TopNav({ className }: TopNavProps) {
           href="/"
           className="font-display text-lg font-bold text-foreground"
         >
-          Bolão na Mão ⚽
+          Bolão na Mão
         </Link>
 
         <nav className="flex items-center gap-6 text-sm font-medium">

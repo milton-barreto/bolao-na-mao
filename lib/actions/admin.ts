@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { TOAST } from '@/lib/constants'
+import type { Json } from '@/lib/supabase/types'
 import type {
   AdminActionResult,
   AdminUserEntry,
@@ -31,7 +32,8 @@ async function requireAdmin(): Promise<SupabaseServerClient> {
 // Helper para pegar admin_id do usuário logado
 async function getAdminId(supabase: SupabaseServerClient): Promise<string> {
   const { data: { user } } = await supabase.auth.getUser()
-  return user!.id
+  if (!user) throw new Error(TOAST.adminAccessDenied)
+  return user.id
 }
 
 // =============================================================
@@ -222,8 +224,8 @@ export async function adminUpdateMatch(
       admin_id: adminId,
       target_table: 'matches',
       target_id: matchId,
-      before: before as any,
-      after: updates as any,
+      before: before as Json, // full Match row — all fields are JSON-serialisable primitives
+      after: updates as Json, // Partial<Match> update — only primitive fields
       reason,
     })
 
@@ -251,7 +253,7 @@ export async function adminForceMatchStatus(
 
     const { data: before } = await supabase
       .from('matches')
-      .select('status')
+      .select('status, external_id')
       .eq('id', matchId)
       .single()
 
@@ -264,9 +266,45 @@ export async function adminForceMatchStatus(
       })
       if (error) return { error: TOAST.genericError }
     } else {
+      type MatchStatusUpdate = {
+        status: string
+        manually_edited: boolean
+        home_score?: number
+        away_score?: number
+      }
+      const update: MatchStatusUpdate = { status, manually_edited: true }
+
+      // Ao finalizar: busca o placar na football-data.org
+      if (status === 'finished' && before?.external_id) {
+        const apiToken = process.env.FOOTBALL_DATA_TOKEN
+        if (apiToken) {
+          try {
+            const res = await fetch(
+              `https://api.football-data.org/v4/matches/${before.external_id}`,
+              {
+                headers: { 'X-Auth-Token': apiToken },
+                signal: AbortSignal.timeout(5000),
+              },
+            )
+            if (res.ok) {
+              const json = await res.json() as {
+                score?: { fullTime?: { home: number | null; away: number | null } }
+              }
+              const ft = json.score?.fullTime
+              if (ft?.home != null && ft?.away != null) {
+                update.home_score = ft.home
+                update.away_score = ft.away
+              }
+            }
+          } catch {
+            // API indisponível — placar será preenchido pelo próximo sync
+          }
+        }
+      }
+
       const { error } = await supabase
         .from('matches')
-        .update({ status, manually_edited: true })
+        .update(update)
         .eq('id', matchId)
 
       if (error) return { error: TOAST.genericError }
@@ -276,13 +314,14 @@ export async function adminForceMatchStatus(
         admin_id: adminId,
         target_table: 'matches',
         target_id: matchId,
-        before: { status: before?.status } as any,
-        after: { status } as any,
+        before: { status: before?.status ?? null },
+        after: { status, home_score: update.home_score ?? null, away_score: update.away_score ?? null },
         reason,
       })
 
-      // Se foi para finished, recalcula
-      if (status === 'finished') {
+      // Trigger trg_match_finished dispara automaticamente via Postgres.
+      // Chamada explícita como fallback caso o trigger não cubra o path.
+      if (status === 'finished' && update.home_score != null) {
         await supabase.rpc('recalc_match_bets', { p_match_id: matchId })
       }
     }
@@ -346,7 +385,7 @@ export async function adminUpdateTier(
       admin_id: adminId,
       target_table: 'teams',
       target_id: teamId,
-      after: { new_tier: newTier } as any,
+      after: { new_tier: newTier },
       reason,
     })
 
@@ -405,7 +444,7 @@ export async function adminToggleApi(available: boolean): Promise<AdminActionRes
       admin_id: adminId,
       target_table: 'app_config',
       target_id: 'api_status',
-      after: { available } as any,
+      after: { available },
       reason: available ? 'API reativada' : 'API desativada (modo manual)',
     })
 
@@ -604,7 +643,7 @@ export async function adminSetBanner(
       admin_id: adminId,
       target_table: 'app_config',
       target_id: 'global_banner',
-      after: { text, type } as any,
+      after: { text, type },
       reason: 'Banner definido via painel admin',
     })
 
@@ -622,7 +661,7 @@ export async function adminClearBanner(): Promise<AdminActionResult> {
 
     const { error } = await supabase
       .from('app_config')
-      .update({ value: 'null' as any })
+      .update({ value: null })
       .eq('key', 'global_banner')
 
     if (error) return { error: TOAST.genericError }
@@ -679,7 +718,7 @@ export async function adminAdvanceTournamentState(
     // Atualiza o estado
     const { error } = await supabase
       .from('app_config')
-      .update({ value: newState as any })
+      .update({ value: newState })
       .eq('key', 'tournament_state')
 
     if (error) return { error: TOAST.genericError }
@@ -700,7 +739,7 @@ export async function adminAdvanceTournamentState(
       admin_id: adminId,
       target_table: 'app_config',
       target_id: 'tournament_state',
-      after: { new_state: newState } as any,
+      after: { new_state: newState },
       reason,
     })
 
@@ -735,7 +774,15 @@ export async function adminPreviewRebalancing(
 
     if (error) return []
 
-    return (data ?? []).map((row: any) => ({
+    interface RebalancingRow {
+      out_team_id: string
+      out_team_name: string
+      out_current_tier: number
+      out_new_tier: number
+      out_delta: number
+      out_avg_score: number
+    }
+    return (data ?? []).map((row: RebalancingRow) => ({
       team_id: row.out_team_id,
       team_name: row.out_team_name,
       current_tier: row.out_current_tier,
@@ -767,7 +814,7 @@ export async function adminExecuteRebalancing(
 
     if (error) return { error: error.message }
 
-    const changed = (data ?? []).filter((r: any) => r.out_delta !== 0).length
+    const changed = (data ?? []).filter((r: { out_delta: number }) => r.out_delta !== 0).length
     revalidatePath('/admin')
     revalidatePath('/ranking')
 

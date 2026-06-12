@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -14,18 +14,19 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { TOAST } from '@/lib/constants'
+import type { Profile } from '@/types'
 
-export function ProfileForm() {
-  const { profile, isLoading, refreshProfile } = useUser()
-
-  // ===== Seção 1: nome + foto =====
-  const [name, setName] = useState('')
+// Inner component — recebe profile já carregado, sem necessidade de useEffect
+function ProfileDataSection({
+  profile,
+  refreshProfile,
+}: {
+  profile: Profile
+  refreshProfile: () => Promise<void>
+}) {
+  const [name, setName] = useState(profile.name ?? '')
   const [avatar, setAvatar] = useState<File | null>(null)
   const [savingData, startSaveData] = useTransition()
-
-  useEffect(() => {
-    if (profile?.name) setName(profile.name)
-  }, [profile?.name])
 
   function handleSaveData() {
     if (name.trim().length < 2) {
@@ -48,7 +49,43 @@ export function ProfileForm() {
     })
   }
 
-  // ===== Seção 2: senha =====
+  return (
+    <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
+      <h2 className="font-display text-lg font-bold">Quem sou eu</h2>
+
+      <AvatarUpload name={name} currentUrl={profile.avatar_url ?? undefined} onCropped={setAvatar} />
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="name">Nome</Label>
+        <Input
+          id="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={40}
+          placeholder="Teu nome ou apelido"
+        />
+      </div>
+
+      <Button onClick={handleSaveData} disabled={savingData} className="w-full">
+        {savingData ? 'Salvando...' : 'Salvar'}
+      </Button>
+    </section>
+  )
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="h-24 animate-pulse rounded-xl bg-muted" />
+      <div className="h-40 animate-pulse rounded-xl bg-muted" />
+    </div>
+  )
+}
+
+export function ProfileForm() {
+  const { profile, isLoading, refreshProfile } = useUser()
+
+  // ===== Senha =====
   const [savingPwd, startSavePwd] = useTransition()
   const {
     register,
@@ -69,42 +106,18 @@ export function ProfileForm() {
     })
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-col gap-4">
-        <div className="h-24 animate-pulse rounded-xl bg-muted" />
-        <div className="h-40 animate-pulse rounded-xl bg-muted" />
-      </div>
-    )
+  if (isLoading || !profile) {
+    return <LoadingSkeleton />
   }
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Seção 1: Dados */}
-      <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
-        <h2 className="font-display text-lg font-bold">Seus dados</h2>
-
-        <AvatarUpload name={name} onCropped={setAvatar} />
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="name">Nome</Label>
-          <Input
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={40}
-            placeholder="Seu nome ou apelido"
-          />
-        </div>
-
-        <Button onClick={handleSaveData} disabled={savingData} className="w-full">
-          {savingData ? 'Salvando...' : 'Salvar dados'}
-        </Button>
-      </section>
+      {/* Seção 1: Dados — só monta quando profile existe */}
+      <ProfileDataSection profile={profile} refreshProfile={refreshProfile} />
 
       {/* Seção 2: Senha */}
       <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5">
-        <h2 className="font-display text-lg font-bold">Trocar senha</h2>
+        <h2 className="font-display text-lg font-bold">Mudar senha</h2>
 
         <form
           onSubmit={handleSubmit(onChangePassword)}
@@ -125,12 +138,12 @@ export function ProfileForm() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="confirmPassword">Confirma a senha</Label>
+            <Label htmlFor="confirmPassword">Confirma aí</Label>
             <Input
               id="confirmPassword"
               type="password"
               autoComplete="new-password"
-              placeholder="Repete a senha"
+              placeholder="digita de novo"
               {...register('confirmPassword')}
             />
             {errors.confirmPassword && (
@@ -146,7 +159,7 @@ export function ProfileForm() {
             variant="outline"
             className="w-full"
           >
-            {savingPwd ? 'Salvando...' : 'Trocar senha'}
+            {savingPwd ? 'Trocando...' : 'Trocar'}
           </Button>
         </form>
       </section>
@@ -158,7 +171,7 @@ export function ProfileForm() {
           variant="ghost"
           className="w-full text-danger hover:text-danger"
         >
-          <LogOut className="h-4 w-4" /> Sair da conta
+          <LogOut className="h-4 w-4" /> Sair fora 👋
         </Button>
       </form>
     </div>

@@ -3,7 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import type { Json } from '@/lib/supabase/types'
 import type { GoldenTicket, GoldenTicketPredictions } from '@/types'
+import type { TournamentState } from '@/lib/constants'
 
 // =============================================================
 // GET GOLDEN TICKET
@@ -59,7 +61,7 @@ export async function saveGoldenTicket(
     .upsert(
       {
         user_id: user.id,
-        predictions: predictions as any,
+        predictions: predictions as Json, // GoldenTicketPredictions is a plain JSON-serialisable object
       },
       { onConflict: 'user_id' },
     )
@@ -126,7 +128,7 @@ export async function adminGetAllGoldenTickets(): Promise<
 // Lê o tournament_state do app_config.
 // Retorna 'group' como padrão se não encontrado.
 // =============================================================
-export async function getTournamentState(): Promise<string> {
+export async function getTournamentState(): Promise<TournamentState> {
   const supabase = await createClient()
 
   const { data } = await supabase
@@ -139,8 +141,8 @@ export async function getTournamentState(): Promise<string> {
 
   // value é JSONB string — extrair o texto
   const val = data.value
-  if (typeof val === 'string') return val
+  if (typeof val === 'string') return val as TournamentState
   // Se for JSON string (e.g., '"group"'), extrai sem aspas
   if (typeof val === 'object' && val !== null) return 'group'
-  return String(val).replace(/^"|"$/g, '')
+  return String(val).replace(/^"|"$/g, '') as TournamentState
 }

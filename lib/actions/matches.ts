@@ -44,7 +44,7 @@ export async function getUpcomingMatches(limit = 5): Promise<MatchWithTeams[]> {
     console.error('getUpcomingMatches:', error)
     return []
   }
-  return (data ?? []) as unknown as MatchWithTeams[]
+  return (data ?? []) as MatchWithTeams[]
 }
 
 /**
@@ -66,7 +66,7 @@ export async function getMatchesByRound(round: number): Promise<MatchWithTeams[]
     console.error('getMatchesByRound:', error)
     return []
   }
-  return (data ?? []) as unknown as MatchWithTeams[]
+  return (data ?? []) as MatchWithTeams[]
 }
 
 /**
@@ -86,5 +86,5 @@ export async function getMatchById(
     .single()
 
   if (error) return null
-  return data as unknown as MatchWithTeams
+  return data as MatchWithTeams
 }

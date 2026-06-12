@@ -1,5 +1,6 @@
 'use client'
 
+import { Coins, Zap } from 'lucide-react'
 import { previewPoints } from '@/lib/scoring'
 
 interface BetPreviewProps {
@@ -24,7 +25,7 @@ export function BetPreview({
   if (predictedHome === '' || predictedAway === '') {
     return (
       <p className="text-center text-sm text-muted-foreground">
-        Preenche o placar pra ver quantos pontos vale. 👀
+        Preenche o placar pra ver quantos pontos vale.
       </p>
     )
   }
@@ -39,13 +40,13 @@ export function BetPreview({
   return (
     <div className="flex flex-col gap-1 text-sm">
       <div className="flex items-center justify-between">
-        <span className="text-muted-foreground">💰 Se acertar o placar:</span>
+        <span className="flex items-center gap-1 text-muted-foreground"><Coins className="h-3 w-3" /> Cravando o placar:</span>
         <span className="font-display font-bold text-success">
           {ifExact.toFixed(2).replace('.', ',')} pts
         </span>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-muted-foreground">⚡ Se acertar o resultado:</span>
+        <span className="flex items-center gap-1 text-muted-foreground"><Zap className="h-3 w-3" /> Acertando o resultado:</span>
         <span className="font-display font-bold text-foreground">
           {ifResult.toFixed(2).replace('.', ',')} pts
         </span>

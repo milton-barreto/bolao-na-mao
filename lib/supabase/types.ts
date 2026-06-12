@@ -331,6 +331,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_admin: boolean | null
+          last_rank: number | null
           name: string
         }
         Insert: {
@@ -338,6 +339,7 @@ export type Database = {
           created_at?: string | null
           id: string
           is_admin?: boolean | null
+          last_rank?: number | null
           name: string
         }
         Update: {
@@ -345,9 +347,83 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_admin?: boolean | null
+          last_rank?: number | null
           name?: string
         }
         Relationships: []
+      }
+      push_queue: {
+        Row: {
+          created_at: string | null
+          dedup_key: string | null
+          id: string
+          payload: Json
+          sent_at: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          dedup_key?: string | null
+          id?: string
+          payload: Json
+          sent_at?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          dedup_key?: string | null
+          id?: string
+          payload?: Json
+          sent_at?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_queue_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth_key: string
+          created_at: string | null
+          endpoint: string
+          id: string
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth_key: string
+          created_at?: string | null
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth_key?: string
+          created_at?: string | null
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teams: {
         Row: {
@@ -467,9 +543,24 @@ export type Database = {
         Args: { p_away_tier: number; p_home_tier: number; p_result: string }
         Returns: number
       }
+      check_deadline_reminders: { Args: never; Returns: number }
       check_email_allowed: { Args: { p_email: string }; Returns: boolean }
+      check_signup_eligibility: { Args: { p_email: string }; Returns: string }
       is_admin: { Args: never; Returns: boolean }
       lock_all_golden_tickets: { Args: never; Returns: number }
+      process_push_queue: {
+        Args: never
+        Returns: {
+          auth_key: string
+          body: string
+          endpoint: string
+          p256dh: string
+          title: string
+          url: string
+          user_id: string
+        }[]
+      }
+      queue_ranking_notifications: { Args: never; Returns: undefined }
       recalc_finished_bets: { Args: never; Returns: undefined }
       recalc_match_bets: { Args: { p_match_id: string }; Returns: undefined }
       sync_matches_from_api: { Args: never; Returns: undefined }

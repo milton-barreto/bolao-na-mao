@@ -1,3 +1,4 @@
+import { Target, Zap } from 'lucide-react'
 import { Container } from '@/components/layout/container'
 import { MyBetsView } from '@/components/my-bets-view'
 import { getMyBets, type MyBetEntry } from '@/lib/actions/bets'
@@ -31,22 +32,28 @@ export default async function MinhasApostasPage() {
   return (
     <Container className="py-6">
       <header className="mb-4">
-        <h1 className="font-display text-2xl font-bold">Minhas Apostas</h1>
+        <h1 className="font-display text-2xl font-bold">Meus Palpites</h1>
       </header>
 
       {/* Totalizador */}
       <div className="mb-5 flex items-center justify-between rounded-xl bg-primary px-4 py-3 text-primary-foreground">
         <div>
           <p className="text-xs font-medium opacity-80">
-            Pontos na fase de grupos
+            seus pontos na fase de grupos
           </p>
           <p className="font-display text-3xl font-bold">
             {totalPoints.toFixed(2).replace('.', ',')}
           </p>
         </div>
-        <div className="text-right text-xs font-medium opacity-90">
-          <p>🎯 {cravadas} cravadas</p>
-          <p>⚡ {resultados} resultados</p>
+        <div className="flex flex-col items-end gap-1 text-xs font-medium opacity-90">
+          <span className="flex items-center gap-1">
+            <Target className="h-3 w-3" />
+            {cravadas} cravadas
+          </span>
+          <span className="flex items-center gap-1">
+            <Zap className="h-3 w-3" />
+            {resultados} resultados
+          </span>
         </div>
       </div>
 

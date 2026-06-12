@@ -34,7 +34,7 @@ export function SignupForm() {
   async function onStep1(data: EmailInput) {
     setLoading(true)
     const supabase = createClient()
-    const { data: allowed, error } = await supabase.rpc('check_email_allowed', {
+    const { data: status, error } = await supabase.rpc('check_signup_eligibility', {
       p_email: data.email,
     })
     setLoading(false)
@@ -43,7 +43,11 @@ export function SignupForm() {
       toast.error(TOAST.genericError)
       return
     }
-    if (!allowed) {
+    if (status === 'already_registered') {
+      toast.error('Você já tem uma conta! Clica em "Já tem conta?" pra entrar.')
+      return
+    }
+    if (status !== 'allowed') {
       toast.error(TOAST.emailNotAllowed)
       return
     }
@@ -67,7 +71,12 @@ export function SignupForm() {
     const result = await signup(formData)
 
     if (!result || 'error' in result) {
-      toast.error(result?.error ?? TOAST.genericError)
+      if (result?.error === 'already_registered') {
+        toast.error('Você já tem uma conta! Clica em "Já tem conta?" pra entrar.')
+        setStep(1)
+      } else {
+        toast.error(result?.error ?? TOAST.genericError)
+      }
       setLoading(false)
       return
     }

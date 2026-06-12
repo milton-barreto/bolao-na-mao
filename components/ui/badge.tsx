@@ -53,7 +53,7 @@ const TIER_VARIANTS = {
 
 function TierBadge({ tier }: { tier: 1 | 2 | 3 | 4 | 5 }) {
   return (
-    <Badge variant={TIER_VARIANTS[tier]}>
+    <Badge variant={TIER_VARIANTS[tier]} className="w-9 justify-center shrink-0">
       T{tier}
     </Badge>
   )

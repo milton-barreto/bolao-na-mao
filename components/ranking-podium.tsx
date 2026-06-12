@@ -1,58 +1,81 @@
 'use client'
 
 import Image from 'next/image'
+import { Trophy } from 'lucide-react'
 import type { RankingEntry } from '@/types'
 
 interface RankingPodiumProps {
   entries: RankingEntry[]
 }
 
-function podiumColor(pos: number) {
-  if (pos === 1) return { bg: '#FFD700', border: '#E6C200', label: '🥇', text: 'MITO 🏆' }
-  if (pos === 2) return { bg: '#C0C0C0', border: '#A8A8A8', label: '🥈', text: 'Pódio 🥈' }
-  return { bg: '#CD7F32', border: '#B46A27', label: '🥉', text: 'Pódio 🥉' }
-}
+const PODIUM_STYLES = {
+  1: {
+    medal: '🥇',
+    label: 'MITO 🏆',
+    barColor: '#FFD700',
+    barHeight: 'h-20',
+    avatarSize: 72,
+    borderColor: '#E6C200',
+    textColor: '#B8860B',
+  },
+  2: {
+    medal: '🥈',
+    label: 'Pódio',
+    barColor: '#C0C0C0',
+    barHeight: 'h-14',
+    avatarSize: 60,
+    borderColor: '#A8A8A8',
+    textColor: '#6B7280',
+  },
+  3: {
+    medal: '🥉',
+    label: 'Pódio',
+    barColor: '#CD7F32',
+    barHeight: 'h-10',
+    avatarSize: 56,
+    borderColor: '#B46A27',
+    textColor: '#6B7280',
+  },
+} as const
 
 function PodiumCard({
   entry,
-  size,
+  isPrimary,
 }: {
   entry: RankingEntry
-  size: 'lg' | 'sm'
+  isPrimary: boolean
 }) {
-  const { label, text } = podiumColor(entry.position)
-  const avatarSize = size === 'lg' ? 72 : 56
+  const pos = entry.position as keyof typeof PODIUM_STYLES
+  const styles = PODIUM_STYLES[pos] ?? PODIUM_STYLES[3]
 
   return (
-    <div
-      className={`flex flex-col items-center gap-2 ${size === 'lg' ? 'scale-110 z-10' : ''}`}
-    >
-      {/* Medalha */}
-      <span className="text-2xl">{label}</span>
+    <div className="flex flex-1 flex-col items-center gap-1.5">
+      <span className="text-2xl">{styles.medal}</span>
 
       {/* Avatar */}
       <div
-        className="rounded-full overflow-hidden border-4"
+        className="overflow-hidden rounded-full border-[3px]"
         style={{
-          width: avatarSize,
-          height: avatarSize,
-          borderColor: podiumColor(entry.position).border,
+          width: styles.avatarSize,
+          height: styles.avatarSize,
+          borderColor: styles.borderColor,
         }}
       >
         {entry.user.avatar_url ? (
           <Image
             src={entry.user.avatar_url}
             alt={entry.user.name}
-            width={avatarSize}
-            height={avatarSize}
-            className="object-cover w-full h-full"
+            width={styles.avatarSize}
+            height={styles.avatarSize}
+            className="h-full w-full object-cover"
           />
         ) : (
           <div
-            className="w-full h-full flex items-center justify-center text-white font-bold"
+            className="flex h-full w-full items-center justify-center font-bold text-white"
             style={{
-              backgroundColor: podiumColor(entry.position).bg,
-              fontSize: size === 'lg' ? 28 : 22,
+              backgroundColor: styles.barColor,
+              fontSize: isPrimary ? 28 : 22,
+              color: entry.position === 1 ? '#0A0A0A' : '#fff',
             }}
           >
             {entry.user.name[0]?.toUpperCase()}
@@ -61,28 +84,20 @@ function PodiumCard({
       </div>
 
       {/* Nome */}
-      <span className="text-sm font-semibold text-center leading-tight max-w-20 truncate">
+      <span className="max-w-[80px] truncate text-center text-sm font-semibold leading-tight">
         {entry.user.name.split(' ')[0]}
       </span>
 
       {/* Pontos */}
-      <span
-        className="text-lg font-bold font-display"
-        style={{ color: podiumColor(entry.position).bg === '#FFD700' ? '#B8860B' : '#4B5563' }}
-      >
+      <span className="font-display text-base font-bold" style={{ color: styles.textColor }}>
         {entry.total_points.toFixed(1)} pts
       </span>
 
-      {/* Badge de posição */}
-      <span
-        className="text-xs font-medium px-2 py-0.5 rounded-full"
-        style={{
-          backgroundColor: podiumColor(entry.position).bg,
-          color: entry.position === 1 ? '#0A0A0A' : '#fff',
-        }}
-      >
-        {text}
-      </span>
+      {/* Barra do pódio */}
+      <div
+        className={`w-full rounded-t-lg ${styles.barHeight}`}
+        style={{ backgroundColor: styles.barColor, opacity: 0.25 }}
+      />
     </div>
   )
 }
@@ -90,44 +105,41 @@ function PodiumCard({
 export function RankingPodium({ entries }: RankingPodiumProps) {
   if (entries.length === 0) return null
 
-  // Detectar empate no top 1 (posição 1 para mais de um)
   const firstPlace = entries.filter((e) => e.position === 1)
   const secondPlace = entries.filter((e) => e.position === 2)
   const thirdPlace = entries.filter((e) => e.position === 3)
 
-  // Layout: 2º | 1º | 3º (ou empate no 1º lado a lado)
   return (
-    <div className="w-full py-8">
-      {/* Título */}
-      <h1 className="text-2xl font-bold font-display text-center mb-8">
-        🏆 Ranking — Bolão da Galera
+    <div className="w-full py-6">
+      <h1 className="mb-6 flex items-center justify-center gap-2 font-display text-xl font-bold">
+        <Trophy className="h-5 w-5 text-brand-yellow" />
+        Ranking — Bolão da Galera
       </h1>
 
       {firstPlace.length >= 2 ? (
-        /* Empate no top 1: todos lado a lado */
-        <div className="flex items-end justify-center gap-6 flex-wrap">
+        /* Empate no top 1 */
+        <div className="flex items-end justify-center gap-4 flex-wrap">
           {firstPlace.map((e) => (
-            <PodiumCard key={e.user.id} entry={e} size="lg" />
+            <PodiumCard key={e.user.id} entry={e} isPrimary />
           ))}
         </div>
       ) : (
-        /* Layout clássico: 2º | 1º | 3º */
-        <div className="flex items-end justify-center gap-6">
-          {/* 2º lugar */}
+        /* Layout 2º | 1º | 3º com barras de altura diferente */
+        <div className="flex items-end justify-center gap-3">
           {secondPlace[0] ? (
-            <PodiumCard entry={secondPlace[0]} size="sm" />
+            <PodiumCard entry={secondPlace[0]} isPrimary={false} />
           ) : (
-            <div className="w-20" />
+            <div className="flex-1" />
           )}
 
-          {/* 1º lugar (maior) */}
-          {firstPlace[0] && <PodiumCard entry={firstPlace[0]} size="lg" />}
+          {firstPlace[0] && (
+            <PodiumCard entry={firstPlace[0]} isPrimary />
+          )}
 
-          {/* 3º lugar */}
           {thirdPlace[0] ? (
-            <PodiumCard entry={thirdPlace[0]} size="sm" />
+            <PodiumCard entry={thirdPlace[0]} isPrimary={false} />
           ) : (
-            <div className="w-20" />
+            <div className="flex-1" />
           )}
         </div>
       )}

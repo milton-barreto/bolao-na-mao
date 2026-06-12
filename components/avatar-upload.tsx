@@ -14,8 +14,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-const MAX_SIZE = 2 * 1024 * 1024 // 2MB
-const ACCEPTED = ['image/jpeg', 'image/png']
+const MAX_SIZE = 20 * 1024 * 1024 // 20MB — output sempre < 300KB após canvas crop
+const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const OUTPUT_SIZE = 512
 
 interface AvatarUploadProps {
@@ -23,9 +23,11 @@ interface AvatarUploadProps {
   onCropped: (file: File) => void
   /** Nome para o fallback (inicial) */
   name?: string
+  /** URL da foto já salva — exibida antes de qualquer upload novo */
+  currentUrl?: string
 }
 
-export function AvatarUpload({ onCropped, name }: AvatarUploadProps) {
+export function AvatarUpload({ onCropped, name, currentUrl }: AvatarUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [imageSrc, setImageSrc] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -39,11 +41,11 @@ export function AvatarUpload({ onCropped, name }: AvatarUploadProps) {
     if (!file) return
 
     if (!ACCEPTED.includes(file.type)) {
-      toast.error('Só JPG ou PNG, mano.')
+      toast.error('Foto precisa ser JPG, PNG, WebP ou GIF, mano.')
       return
     }
     if (file.size > MAX_SIZE) {
-      toast.error('Foto muito pesada. Máximo 2MB.')
+      toast.error('Arquivo muito grande. Máximo 20MB.')
       return
     }
 
@@ -89,6 +91,8 @@ export function AvatarUpload({ onCropped, name }: AvatarUploadProps) {
         <Avatar className="h-24 w-24">
           {preview ? (
             <AvatarImage src={preview} alt="Prévia do avatar" />
+          ) : currentUrl ? (
+            <AvatarImage src={currentUrl} alt="Foto de perfil" />
           ) : null}
           <AvatarFallback className="text-2xl">{initial}</AvatarFallback>
         </Avatar>
@@ -102,13 +106,13 @@ export function AvatarUpload({ onCropped, name }: AvatarUploadProps) {
         onClick={() => inputRef.current?.click()}
         className="text-sm font-medium text-brand-blue hover:underline"
       >
-        {preview ? 'Trocar foto' : 'Adicionar foto (opcional)'}
+        {preview || currentUrl ? 'Trocar foto' : 'Bora colocar uma foto'}
       </button>
 
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png"
+        accept="image/jpeg,image/png,image/webp,image/gif"
         onChange={onSelectFile}
         className="hidden"
       />

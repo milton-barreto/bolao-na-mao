@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getRanking } from '@/lib/actions/ranking'
+import { Trophy } from 'lucide-react'
+import { Container } from '@/components/layout/container'
 import { RankingPodium } from '@/components/ranking-podium'
 import { RankingList } from '@/components/ranking-list'
 
@@ -13,47 +15,37 @@ export default async function RankingPage() {
 
   const ranking = await getRanking(user?.id)
 
-  // Checa se há algum ponto no ranking
   const hasPoints = ranking.some((e) => e.total_points > 0)
-
-  // Top 3 para o pódio (posições 1, 2 e 3)
   const podiumEntries = ranking.filter((e) => e.position <= 3)
-
-  // Lista do 4º em diante
   const listEntries = ranking.filter((e) => e.position > 3)
 
   return (
-    <div className="container py-4 pb-8">
+    <Container className="py-4 pb-10">
       {!hasPoints ? (
-        /* Empty state */
-        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <span className="text-5xl">🏆</span>
+        <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+          <Trophy className="h-12 w-12 text-muted-foreground/50" />
           <p className="text-lg font-semibold">Ninguém pontuou ainda. Aguenta firme.</p>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Os pontos aparecem aqui quando os jogos terminarem.
+          <p className="text-sm text-muted-foreground">
+            Os pontos pipocam aqui quando rolar os jogos.
           </p>
         </div>
       ) : (
         <>
-          {/* Pódio top 3 */}
           <RankingPodium entries={podiumEntries} />
 
-          {/* Divider */}
-          <div className="border-t border-[var(--border)] mx-4 my-4" />
+          <div className="border-t border-border my-2" />
 
-          {/* Lista do 4º em diante */}
           {listEntries.length > 0 && (
             <RankingList entries={listEntries} currentUserId={user?.id} />
           )}
 
-          {/* Se o usuário está no pódio, destaca isso */}
           {user && podiumEntries.some((e) => e.user.id === user.id) && (
-            <p className="text-center text-sm text-success font-medium mt-4">
-              🎉 Você está no pódio! Bora manter!
+            <p className="mt-4 text-center text-sm font-medium text-success">
+              Você tá no pódio! 🔥 Não deixa cair!
             </p>
           )}
         </>
       )}
-    </div>
+    </Container>
   )
 }

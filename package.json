@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint .",
     "db:types": "supabase gen types typescript --linked > lib/supabase/types.ts",
     "db:push": "supabase db push"
   },
@@ -24,6 +24,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^1.17.0",
     "next": "16.2.7",
     "next-themes": "^0.4.6",
@@ -43,6 +44,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
+    "supabase": "^2.106.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

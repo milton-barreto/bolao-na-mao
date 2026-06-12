@@ -12,7 +12,7 @@ export default function AuthLayout({
           href="/"
           className="mb-8 block text-center font-display text-2xl font-bold text-foreground"
         >
-          Bolão na Mão ⚽
+          Bolão na Mão
         </Link>
         {children}
       </div>

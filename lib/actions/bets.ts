@@ -164,6 +164,102 @@ export async function getBetsForMatch(matchId: string): Promise<BetEntry[]> {
 }
 
 // =============================================================
+// GET NEXT MATCHES WITH ALL BETS
+// Próximos jogos (deadline passado) com palpites de todos — para
+// a seção "Palpites da galera" na home.
+// =============================================================
+export async function getNextMatchesWithAllBets(limit = 3): Promise<
+  Array<{
+    match: MatchWithTeams
+    bets: BetEntry[]
+    deadlinePassed: boolean
+  }>
+> {
+  const supabase = await createClient()
+  const now = new Date()
+
+  // Jogos cuja deadline já passou, mais próximos do kickoff
+  const { data: matches } = await supabase
+    .from('matches')
+    .select(
+      `*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)`,
+    )
+    .eq('phase', 'group')
+    .not('status', 'eq', 'cancelled')
+    .lt('deadline_at', now.toISOString())
+    .order('kickoff_at', { ascending: false })
+    .limit(limit)
+
+  if (!matches?.length) return []
+
+  const typedMatches = (matches as MatchWithTeams[]).reverse()
+
+  const results = await Promise.all(
+    typedMatches.map(async (match) => {
+      const deadlinePassed =
+        match.status === 'live' ||
+        match.status === 'finished' ||
+        (match.deadline_at !== null && new Date(match.deadline_at) < now)
+      const bets = deadlinePassed ? await getBetsForMatch(match.id) : []
+      return { match, bets, deadlinePassed }
+    }),
+  )
+
+  return results
+}
+
+// =============================================================
+// GET TODAY MATCHES WITH ALL BETS
+// Todos os jogos de hoje (fuso Fortaleza UTC-3) com palpites
+// revelados — para a seção "Palpites da galera" na home.
+// =============================================================
+export async function getTodayMatchesWithAllBets(): Promise<
+  Array<{
+    match: MatchWithTeams
+    bets: BetEntry[]
+    deadlinePassed: boolean
+  }>
+> {
+  const supabase = await createClient()
+  const now = new Date()
+
+  // Limites do "hoje" em America/Fortaleza (UTC-3, sem DST)
+  const fortalezaMs = now.getTime() - 3 * 60 * 60 * 1000
+  const ftz = new Date(fortalezaMs)
+  const y = ftz.getUTCFullYear()
+  const mo = ftz.getUTCMonth()
+  const d = ftz.getUTCDate()
+  // Meia-noite Fortaleza = 03:00 UTC
+  const startUtc = new Date(Date.UTC(y, mo, d, 3, 0, 0, 0))
+  const endUtc = new Date(Date.UTC(y, mo, d + 1, 3, 0, 0, 0))
+
+  const { data: matches } = await supabase
+    .from('matches')
+    .select(
+      `*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)`,
+    )
+    .not('status', 'eq', 'cancelled')
+    .gte('kickoff_at', startUtc.toISOString())
+    .lt('kickoff_at', endUtc.toISOString())
+    .order('kickoff_at', { ascending: true })
+
+  if (!matches?.length) return []
+
+  const results = await Promise.all(
+    (matches as MatchWithTeams[]).map(async (match) => {
+      const deadlinePassed =
+        match.status === 'live' ||
+        match.status === 'finished' ||
+        (match.deadline_at !== null && new Date(match.deadline_at) < now)
+      const bets = deadlinePassed ? await getBetsForMatch(match.id) : []
+      return { match, bets, deadlinePassed }
+    }),
+  )
+
+  return results
+}
+
+// =============================================================
 // GET MY BETS
 // Todos os palpites do usuário logado, com o match completo.
 // Filtro opcional por fase e rodada.
@@ -214,7 +310,7 @@ export async function getMyBets(
     }
 
     return {
-      match: match as unknown as MatchWithTeams,
+      match: match as MatchWithTeams,
       bet,
       status,
     }

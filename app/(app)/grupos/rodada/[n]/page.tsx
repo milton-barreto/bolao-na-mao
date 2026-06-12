@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Timer } from 'lucide-react'
 import { Container } from '@/components/layout/container'
 import { MatchCard } from '@/components/match-card'
 import { getMatchesByRound } from '@/lib/actions/matches'
@@ -65,19 +65,20 @@ export default async function RodadaPage({
     <Container className="py-6">
       <header className="mb-4">
         <h1 className="font-display text-2xl font-bold">
-          Rodada {round} · Fase de Grupos
+          Rodada {round}
         </h1>
       </header>
 
       {hasSoonDeadline && (
-        <div className="mb-4 rounded-xl bg-warning px-4 py-3 text-sm font-semibold text-black">
-          ⏱️ Ó o relógio! Tem jogo fechando em menos de 1h.
+        <div className="mb-4 flex items-center gap-2 rounded-xl bg-warning px-4 py-3 text-sm font-semibold text-black">
+          <Timer className="h-4 w-4 shrink-0" />
+          Ó o relógio! Tem jogo fechando em menos de 1h.
         </div>
       )}
 
       {matches.length === 0 ? (
         <p className="py-12 text-center text-muted-foreground">
-          Nenhum jogo nessa rodada ainda.
+          Sem jogo nessa rodada ainda. 🤷
         </p>
       ) : (
         <div className="flex flex-col gap-4">

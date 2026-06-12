@@ -71,8 +71,15 @@ export async function signup(formData: FormData): Promise<ActionResult> {
     password,
     options: { data: { name } },
   })
-  if (signUpError || !signUpData.user) {
-    return { error: signUpError?.message ?? TOAST.genericError }
+  if (signUpError) {
+    const msg = signUpError.message.toLowerCase()
+    if (msg.includes('already registered') || msg.includes('already been registered')) {
+      return { error: 'already_registered' }
+    }
+    return { error: signUpError.message ?? TOAST.genericError }
+  }
+  if (!signUpData.user) {
+    return { error: TOAST.genericError }
   }
 
   const userId = signUpData.user.id

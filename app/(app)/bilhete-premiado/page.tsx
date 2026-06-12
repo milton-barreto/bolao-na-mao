@@ -1,3 +1,4 @@
+import { Ticket, BarChart2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { BracketSVG } from '@/components/bracket/bracket-svg'
 import { getTournamentState, getGoldenTicket, getGoldenTicketPoints } from '@/lib/actions/golden-ticket'
@@ -14,11 +15,11 @@ export default async function BilhetePremiadoPage() {
   // Mostrar aviso se ainda fase de grupos
   if (tournamentState === 'group') {
     return (
-      <div className="container py-12 text-center space-y-3">
-        <span className="text-4xl">🎟️</span>
+      <div className="flex flex-col items-center gap-3 container py-12 text-center">
+        <Ticket className="h-10 w-10 text-muted-foreground/50" />
         <h1 className="text-xl font-bold">Bilhete Premiado</h1>
         <p className="text-sm text-[var(--text-secondary)]">
-          Disponível quando o sorteio dos 16-avos for definido (fim da fase de grupos).
+          Ainda não, parceiro! Isso só abre quando acabar a fase de grupos e os 16-avos forem sorteados.
         </p>
       </div>
     )
@@ -42,7 +43,7 @@ export default async function BilhetePremiadoPage() {
     champion: null,
   }
 
-  const isLocked = !isTicketEditable(tournamentState as any)
+  const isLocked = !tournamentState || !isTicketEditable(tournamentState)
   const lockedAt = ticket?.locked_at
 
   // Resultados reais para badges (acertou/errou)
@@ -54,17 +55,23 @@ export default async function BilhetePremiadoPage() {
       .eq('status', 'finished')
       .not('advancing_team_id', 'is', null)
 
-    return (data ?? []).map((m) => ({
-      phase: m.phase as 'r32' | 'r16' | 'qf' | 'sf' | 'final',
-      advancing_team_id: m.advancing_team_id!,
-    }))
+    type KnockoutPhase = 'r32' | 'r16' | 'qf' | 'sf' | 'final'
+    return (data ?? [])
+      .filter((m): m is typeof m & { advancing_team_id: string } => m.advancing_team_id !== null)
+      .map((m) => ({
+        phase: m.phase as KnockoutPhase,
+        advancing_team_id: m.advancing_team_id,
+      }))
   })()
 
   return (
     <div className="container py-4 pb-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-xl font-bold font-display">🎟️ Bilhete Premiado</h1>
+        <h1 className="flex items-center gap-2 text-xl font-bold font-display">
+          <Ticket className="h-5 w-5" />
+          Bilhete Premiado
+        </h1>
         {isLocked ? (
           <p className="text-sm text-[var(--text-secondary)] mt-1">
             Bilhete travado. Torce e reza. 🙏
@@ -84,20 +91,20 @@ export default async function BilhetePremiadoPage() {
       {/* Pontuação do bilhete */}
       {ticketPoints > 0 && (
         <div className="rounded-xl border border-[var(--primary)] bg-amber-50 p-4 mb-6 text-center">
-          <p className="text-sm text-[var(--text-secondary)]">Pontos do bilhete</p>
+          <p className="text-sm text-[var(--text-secondary)]">Seus pontos no bilhete</p>
           <p className="text-3xl font-bold font-display text-[var(--primary-fg)]">
             {ticketPoints.toFixed(1)} pts
           </p>
           <p className="text-xs text-[var(--text-secondary)] mt-1">
-            Máximo possível: {16 + 16 + 20 + 10 + 5 + 10} pts
+            dá pra chegar em {16 + 16 + 20 + 10 + 5 + 10} pts
           </p>
         </div>
       )}
 
       {/* Tabela de pontuação */}
       <details className="mb-4 border border-[var(--border)] rounded-lg">
-        <summary className="px-4 py-2 text-sm font-medium cursor-pointer">
-          📊 Como funciona a pontuação
+        <summary className="flex items-center gap-2 px-4 py-2 text-sm font-medium cursor-pointer">
+          <BarChart2 className="h-4 w-4" /> Como funciona isso aqui
         </summary>
         <div className="px-4 pb-3">
           <table className="w-full text-xs mt-2">
@@ -131,8 +138,8 @@ export default async function BilhetePremiadoPage() {
       {/* Bracket SVG */}
       {r32Matches.length === 0 ? (
         <div className="text-center py-8 text-[var(--text-secondary)]">
-          <p>Os confrontos dos 16-avos ainda não foram definidos.</p>
-          <p className="text-xs mt-1">O admin precisa semear os jogos de mata-mata.</p>
+          <p>Os confrontos ainda não saíram do forno. 🔥</p>
+          <p className="text-xs mt-1">Aguarda o admin configurar os jogos. 🙏</p>
         </div>
       ) : (
         <BracketSVG

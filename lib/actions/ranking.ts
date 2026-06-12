@@ -17,7 +17,7 @@ export async function getRanking(currentUserId?: string): Promise<RankingEntry[]
   // Query todos os profiles com JOIN em bets (excluindo jogos cancelados)
   const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
-    .select('id, name, avatar_url, is_admin, created_at')
+    .select('id, name, avatar_url, is_admin, created_at, last_rank')
     .order('name')
 
   if (profilesError || !profiles) return []
