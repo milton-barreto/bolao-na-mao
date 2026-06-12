@@ -229,8 +229,9 @@ export async function getTodayMatchesWithAllBets(): Promise<
   const y = ftz.getUTCFullYear()
   const mo = ftz.getUTCMonth()
   const d = ftz.getUTCDate()
-  // Meia-noite Fortaleza = 03:00 UTC
-  const startUtc = new Date(Date.UTC(y, mo, d, 3, 0, 0, 0))
+  // Meia-noite Fortaleza = 03:00 UTC; recua 3h para incluir jogos do dia anterior
+  // que começaram até 23h59 (kickoff às 23h ainda aparece nas 3h seguintes do dia)
+  const startUtc = new Date(Date.UTC(y, mo, d, 0, 0, 0, 0))
   const endUtc = new Date(Date.UTC(y, mo, d + 1, 3, 0, 0, 0))
 
   const { data: matches } = await supabase
