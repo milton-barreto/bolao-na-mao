@@ -27,7 +27,7 @@ const STATUS_VARIANT: Record<
 
 export function ExtratoView({ rounds }: { rounds: Record<number, MyBetEntry[]> }) {
   const roundNumbers = Object.keys(rounds).map(Number).sort((a, b) => a - b)
-  const [openRounds, setOpenRounds] = useState<Set<number>>(new Set(roundNumbers))
+  const [openRounds, setOpenRounds] = useState<Set<number>>(new Set())
 
   function toggle(r: number) {
     setOpenRounds((prev) => {
