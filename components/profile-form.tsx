@@ -4,10 +4,9 @@ import { useState, useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
-import { ChevronDown, LogOut } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useUser } from '@/hooks/use-user'
 import { updateProfile, updateProfilePassword } from '@/lib/actions/profile'
-import { logout } from '@/lib/actions/auth'
 import { newPasswordSchema, type NewPasswordInput } from '@/lib/validations/auth'
 import { AvatarUpload } from '@/components/avatar-upload'
 import { Button } from '@/components/ui/button'
@@ -192,12 +191,6 @@ export function ProfileForm() {
         )}
       </div>
 
-      {/* Logout */}
-      <form action={logout}>
-        <Button type="submit" variant="ghost" className="w-full text-danger hover:text-danger">
-          <LogOut className="h-4 w-4" /> Sair fora 👋
-        </Button>
-      </form>
     </div>
   )
 }
