@@ -44,10 +44,10 @@ export async function saveBet(
   } = await supabase.auth.getUser()
   if (authError || !user) return { error: 'Faz login primeiro, mano.' }
 
-  // Validação server-side do deadline
+  // Validação server-side do deadline + round_number numa única query
   const { data: match } = await supabase
     .from('matches')
-    .select('deadline_at, status')
+    .select('deadline_at, status, round_number')
     .eq('id', matchId)
     .single()
 
@@ -68,7 +68,6 @@ export async function saveBet(
         match_id: matchId,
         predicted_home_score: predictedHome,
         predicted_away_score: predictedAway,
-        // Pontos serão calculados pelo trigger quando o jogo terminar
         base_points: null,
         odd_multiplier: null,
         total_points: null,
@@ -83,15 +82,8 @@ export async function saveBet(
     return { error: 'Não salvou. Tenta de novo.' }
   }
 
-  // Invalida o cache da tela de rodada correspondente
-  const { data: fullMatch } = await supabase
-    .from('matches')
-    .select('round_number')
-    .eq('id', matchId)
-    .single()
-
-  if (fullMatch?.round_number) {
-    revalidatePath(`/grupos/rodada/${fullMatch.round_number}`)
+  if (match.round_number) {
+    revalidatePath(`/grupos/rodada/${match.round_number}`)
   }
   revalidatePath('/')
 

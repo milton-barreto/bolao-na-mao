@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { previewPoints } from '@/lib/scoring'
 import type { BetEntry } from '@/lib/actions/bets'
 import type { BetStatus } from '@/types'
 
@@ -29,9 +30,10 @@ interface BetsPanelProps {
   bets: BetEntry[]
   currentUserId?: string
   defaultOpen?: boolean
+  matchTiers?: { home: number; away: number }
 }
 
-export function BetsPanel({ bets, currentUserId, defaultOpen = false }: BetsPanelProps) {
+export function BetsPanel({ bets, currentUserId, defaultOpen = false, matchTiers }: BetsPanelProps) {
   const [open, setOpen] = useState(defaultOpen)
 
   if (bets.length === 0) return null
@@ -56,6 +58,15 @@ export function BetsPanel({ bets, currentUserId, defaultOpen = false }: BetsPane
           {bets.map((b) => {
             const isMe = b.user_id === currentUserId
             const initial = b.user_name.charAt(0).toUpperCase()
+            const preview =
+              b.status === 'pendente' && matchTiers
+                ? previewPoints(
+                    matchTiers.home,
+                    matchTiers.away,
+                    b.predicted_home_score,
+                    b.predicted_away_score,
+                  )
+                : null
             return (
               <li
                 key={b.bet_id}
@@ -84,12 +95,23 @@ export function BetsPanel({ bets, currentUserId, defaultOpen = false }: BetsPane
                   {b.predicted_home_score}-{b.predicted_away_score}
                 </span>
 
-                <Badge variant={STATUS_VARIANT[b.status]} className="shrink-0 text-[10px]">
-                  {STATUS_LABEL[b.status]}
-                  {b.total_points !== null && b.status !== 'errou'
-                    ? ` · ${b.total_points.toFixed(1)}`
-                    : ''}
-                </Badge>
+                {preview ? (
+                  <div className="flex flex-col items-end shrink-0">
+                    <span className="font-display text-[10px] font-bold text-success tabular-nums leading-tight">
+                      +{preview.ifExact.toFixed(2).replace('.', ',')}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground tabular-nums leading-tight">
+                      +{preview.ifResult.toFixed(2).replace('.', ',')} res.
+                    </span>
+                  </div>
+                ) : (
+                  <Badge variant={STATUS_VARIANT[b.status]} className="shrink-0 text-[10px]">
+                    {STATUS_LABEL[b.status]}
+                    {b.total_points !== null && b.status !== 'errou'
+                      ? ` · ${b.total_points.toFixed(1)}`
+                      : ''}
+                  </Badge>
+                )}
               </li>
             )
           })}

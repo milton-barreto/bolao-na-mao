@@ -14,11 +14,12 @@ export default async function MinhasApostasPage() {
   // Todos os jogos da fase de grupos com meus palpites
   const allBets = await getMyBets('group')
 
-  // Agrupa por rodada
-  const rounds: Record<number, MyBetEntry[]> = { 1: [], 2: [], 3: [] }
+  // Agrupa por rodada (dinâmico — sem hardcode de rodadas)
+  const rounds: Record<number, MyBetEntry[]> = {}
   for (const entry of allBets) {
     const r = entry.match.round_number ?? 1
-    if (rounds[r]) rounds[r].push(entry)
+    if (!rounds[r]) rounds[r] = []
+    rounds[r].push(entry)
   }
 
   // Totalizador: soma de total_points dos jogos finalizados

@@ -4,13 +4,16 @@ import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { savePushSubscription } from '@/lib/actions/push'
 
-const STORAGE_KEY = 'push_asked'
+const PERMISSION_KEY = 'push_permission'
 
-function urlBase64ToUint8Array(b64: string): Uint8Array {
+function urlBase64ToUint8Array(b64: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (b64.length % 4)) % 4)
   const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/')
   const raw = atob(base64)
-  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)))
+  const buf = new ArrayBuffer(raw.length)
+  const view = new Uint8Array(buf)
+  for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i)
+  return view
 }
 
 function bufferToBase64(buf: ArrayBuffer): string {
@@ -20,45 +23,78 @@ function bufferToBase64(buf: ArrayBuffer): string {
   return btoa(str)
 }
 
+async function getOrCreateSubscription(
+  reg: ServiceWorkerRegistration,
+  vapidKey: string,
+): Promise<PushSubscription | null> {
+  try {
+    const existing = await reg.pushManager.getSubscription()
+    if (existing) return existing
+
+    return await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    })
+  } catch (err) {
+    console.error('[push] subscribe failed:', err)
+    return null
+  }
+}
+
 export function PushManager() {
   useEffect(() => {
-    // Só pede uma vez — localStorage guarda a decisão para sempre
-    if (localStorage.getItem(STORAGE_KEY)) return
     if (!('PushManager' in window) || !('serviceWorker' in navigator)) return
 
     const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
     if (!vapidKey) return
 
-    async function requestPermission() {
+    const storedPermission = localStorage.getItem(PERMISSION_KEY)
+    if (storedPermission === 'denied') return
+
+    async function setupPush() {
       const supabase = createClient()
       const {
         data: { user },
       } = await supabase.auth.getUser()
       if (!user) return
 
-      const permission = await Notification.requestPermission()
-      localStorage.setItem(STORAGE_KEY, permission)
-      if (permission !== 'granted') return
+      const currentPermission = Notification.permission
 
+      if (currentPermission === 'denied') {
+        localStorage.setItem(PERMISSION_KEY, 'denied')
+        return
+      }
+
+      // Se ainda não pediu permissão, pede agora
+      if (currentPermission === 'default') {
+        const result = await Notification.requestPermission()
+        localStorage.setItem(PERMISSION_KEY, result)
+        if (result !== 'granted') return
+      }
+
+      // Permissão concedida — garante que a subscription está ativa e salva
       try {
         const reg = await navigator.serviceWorker.ready
-        const sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidKey!).buffer as ArrayBuffer,
-        })
+        const sub = await getOrCreateSubscription(reg, vapidKey!)
+        if (!sub) return
+
+        const p256dh = sub.getKey('p256dh')
+        const auth = sub.getKey('auth')
+        if (!p256dh || !auth) return
 
         await savePushSubscription({
           endpoint: sub.endpoint,
-          p256dh:   bufferToBase64(sub.getKey('p256dh')!),
-          auth_key: bufferToBase64(sub.getKey('auth')!),
+          p256dh: bufferToBase64(p256dh),
+          auth_key: bufferToBase64(auth),
         })
+        localStorage.setItem(PERMISSION_KEY, 'granted')
       } catch (err) {
-        console.error('[push] subscribe failed:', err)
+        console.error('[push] setup failed:', err)
       }
     }
 
     // Pequeno delay para não competir com a carga inicial
-    const t = setTimeout(requestPermission, 3500)
+    const t = setTimeout(setupPush, 3500)
     return () => clearTimeout(t)
   }, [])
 

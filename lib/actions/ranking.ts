@@ -1,16 +1,18 @@
 'use server'
 
+import { unstable_cache } from 'next/cache'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from '@/lib/env'
 import type { Database } from '@/lib/supabase/types'
 import type { RankingEntry } from '@/types'
 
-// Service role — bypass de RLS em todas as consultas do ranking
+type CachedRankingEntry = Omit<RankingEntry, 'isCurrentUser'>
+
 function createClient() {
   return createSupabaseClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 }
 
-export async function getRanking(currentUserId?: string): Promise<RankingEntry[]> {
+async function computeRanking(): Promise<CachedRankingEntry[]> {
   const supabase = createClient()
 
   // 1. Fonte de verdade: todos os usuários registrados no auth
@@ -74,7 +76,7 @@ export async function getRanking(currentUserId?: string): Promise<RankingEntry[]
   // 6. Monta e ordena
   const ranked = allUsers.map((u) => {
     const stats = statsMap.get(u.id) ?? { total_points: 0, bets_count: 0, acertou_placar_count: 0, acertou_resultado_count: 0 }
-    return { user: u, ...stats, position: 0, isCurrentUser: u.id === currentUserId }
+    return { user: u, ...stats, position: 0 }
   })
 
   ranked.sort((a, b) => {
@@ -112,4 +114,14 @@ export async function getRanking(currentUserId?: string): Promise<RankingEntry[]
   }
 
   return ranked
+}
+
+const getCachedRanking = unstable_cache(computeRanking, ['ranking'], {
+  revalidate: 60,
+  tags: ['ranking'],
+})
+
+export async function getRanking(currentUserId?: string): Promise<RankingEntry[]> {
+  const raw = await getCachedRanking()
+  return raw.map((e) => ({ ...e, isCurrentUser: e.user.id === currentUserId }))
 }

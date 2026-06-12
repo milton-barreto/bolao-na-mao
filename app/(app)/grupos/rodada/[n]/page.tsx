@@ -22,36 +22,40 @@ export default async function RodadaPage({
   const round = Number(n)
   if (!ROUNDS.includes(round)) notFound()
 
-  const matches = await getMatchesByRound(round)
-
-  // Usuário logado + meus palpites nesta rodada
+  // Busca matches e usuário em paralelo
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const [matches, { data: { user } }] = await Promise.all([
+    getMatchesByRound(round),
+    supabase.auth.getUser(),
+  ])
 
   const matchIds = matches.map((m) => m.id)
+  const passedDeadlineMatches = matches.filter(
+    (m) => m.deadline_at && isDeadlinePassed(m.deadline_at),
+  )
+
+  // Meus palpites e palpites alheios em paralelo
+  const [myBetsResult, otherBetsEntries] = await Promise.all([
+    user && matchIds.length > 0
+      ? supabase.from('bets').select('*').eq('user_id', user.id).in('match_id', matchIds)
+      : Promise.resolve({ data: null }),
+    Promise.all(
+      passedDeadlineMatches.map(async (m) => ({
+        matchId: m.id,
+        bets: await getBetsForMatch(m.id),
+      })),
+    ),
+  ])
+
   const myBetByMatch = new Map<string, Bet>()
-  if (user && matchIds.length > 0) {
-    const { data: myBets } = await supabase
-      .from('bets')
-      .select('*')
-      .eq('user_id', user.id)
-      .in('match_id', matchIds)
-    for (const b of myBets ?? []) {
-      if (b.match_id) myBetByMatch.set(b.match_id, b as Bet)
-    }
+  for (const b of myBetsResult.data ?? []) {
+    if (b.match_id) myBetByMatch.set(b.match_id, b as Bet)
   }
 
-  // Palpites dos outros — só para jogos com deadline passado
   const otherBetsByMatch = new Map<string, Awaited<ReturnType<typeof getBetsForMatch>>>()
-  await Promise.all(
-    matches
-      .filter((m) => m.deadline_at && isDeadlinePassed(m.deadline_at))
-      .map(async (m) => {
-        otherBetsByMatch.set(m.id, await getBetsForMatch(m.id))
-      }),
-  )
+  for (const { matchId, bets } of otherBetsEntries) {
+    otherBetsByMatch.set(matchId, bets)
+  }
 
   // Banner se algum jogo tem deadline < 1h
   const hasSoonDeadline = matches.some(

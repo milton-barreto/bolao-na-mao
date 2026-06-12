@@ -196,7 +196,11 @@ export function MatchCard({
 
       {/* Palpites dos outros — após deadline */}
       {deadlinePassed && (
-        <BetsPanel bets={otherBets} currentUserId={currentUserId} />
+        <BetsPanel
+          bets={otherBets}
+          currentUserId={currentUserId}
+          matchTiers={{ home: homeTier, away: awayTier }}
+        />
       )}
     </div>
   )
