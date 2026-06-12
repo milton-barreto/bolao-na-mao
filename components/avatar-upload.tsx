@@ -25,9 +25,11 @@ interface AvatarUploadProps {
   name?: string
   /** URL da foto já salva — exibida antes de qualquer upload novo */
   currentUrl?: string
+  /** Modo compacto: avatar 48px sem link de texto abaixo */
+  compact?: boolean
 }
 
-export function AvatarUpload({ onCropped, name, currentUrl }: AvatarUploadProps) {
+export function AvatarUpload({ onCropped, name, currentUrl, compact }: AvatarUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [imageSrc, setImageSrc] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -81,33 +83,35 @@ export function AvatarUpload({ onCropped, name, currentUrl }: AvatarUploadProps)
   const initial = name?.trim()?.[0]?.toUpperCase() ?? '?'
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className={compact ? undefined : 'flex flex-col items-center gap-3'}>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         className="group relative"
         aria-label="Escolher foto de perfil"
       >
-        <Avatar className="h-24 w-24">
+        <Avatar className={compact ? 'h-12 w-12' : 'h-24 w-24'}>
           {preview ? (
             <AvatarImage src={preview} alt="Prévia do avatar" />
           ) : currentUrl ? (
             <AvatarImage src={currentUrl} alt="Foto de perfil" />
           ) : null}
-          <AvatarFallback className="text-2xl">{initial}</AvatarFallback>
+          <AvatarFallback className={compact ? 'text-lg' : 'text-2xl'}>{initial}</AvatarFallback>
         </Avatar>
         <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-          <Camera className="h-6 w-6 text-white" />
+          <Camera className={compact ? 'h-4 w-4 text-white' : 'h-6 w-6 text-white'} />
         </span>
       </button>
 
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        className="text-sm font-medium text-brand-blue hover:underline"
-      >
-        {preview || currentUrl ? 'Trocar foto' : 'Bora colocar uma foto'}
-      </button>
+      {!compact && (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="text-sm font-medium text-brand-blue hover:underline"
+        >
+          {preview || currentUrl ? 'Trocar foto' : 'Bora colocar uma foto'}
+        </button>
+      )}
 
       <input
         ref={inputRef}
