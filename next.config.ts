@@ -17,10 +17,9 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       {
-        // Bandeiras dos times — flagcdn.com
+        // Bandeiras dos times — flagcdn.com (w40 → w160 para qualidade em retina)
         protocol: 'https',
         hostname: 'flagcdn.com',
-        pathname: '/w40/**',
       },
       {
         // Avatares dos usuários — Supabase Storage

@@ -46,8 +46,8 @@ function PendingMatchCard({
       {/* Times */}
       <div className="flex flex-1 items-center gap-2 min-w-0">
         <div className="flex items-center gap-1.5">
-          <TeamFlag flagUrl={home?.flag_url ?? null} teamName={home?.name ?? '?'} size={26} />
-          <TeamFlag flagUrl={away?.flag_url ?? null} teamName={away?.name ?? '?'} size={26} />
+          <TeamFlag flagUrl={home?.flag_url ?? null} teamName={home?.name ?? '?'} size={24} />
+          <TeamFlag flagUrl={away?.flag_url ?? null} teamName={away?.name ?? '?'} size={24} />
         </div>
         <div className="flex flex-col min-w-0">
           <span className="text-sm font-semibold leading-tight truncate">

@@ -28,10 +28,11 @@ const STATUS_VARIANT: Record<
 interface BetsPanelProps {
   bets: BetEntry[]
   currentUserId?: string
+  defaultOpen?: boolean
 }
 
-export function BetsPanel({ bets, currentUserId }: BetsPanelProps) {
-  const [open, setOpen] = useState(false)
+export function BetsPanel({ bets, currentUserId, defaultOpen = false }: BetsPanelProps) {
+  const [open, setOpen] = useState(defaultOpen)
 
   if (bets.length === 0) return null
 

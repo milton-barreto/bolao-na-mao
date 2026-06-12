@@ -81,7 +81,7 @@ export function TiersTab({ teams }: TiersTabProps) {
 
                 return (
                   <div key={team.id} className="flex items-center gap-3 px-4 py-3 flex-wrap">
-                    <TeamFlag flagUrl={team.flag_url} teamName={team.name} size={28} />
+                    <TeamFlag flagUrl={team.flag_url} teamName={team.name} size={24} />
                     <span className="flex-1 text-sm font-medium min-w-0 truncate">
                       {team.name}
                     </span>

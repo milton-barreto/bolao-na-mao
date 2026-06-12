@@ -2,11 +2,15 @@ import { Target, Zap } from 'lucide-react'
 import { Container } from '@/components/layout/container'
 import { MyBetsView } from '@/components/my-bets-view'
 import { getMyBets, type MyBetEntry } from '@/lib/actions/bets'
+import { createClient } from '@/lib/supabase/server'
 
 export const revalidate = 60
 export const metadata = { title: 'Minhas Apostas — Bolão na Mão' }
 
 export default async function MinhasApostasPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
   // Todos os jogos da fase de grupos com meus palpites
   const allBets = await getMyBets('group')
 
@@ -57,7 +61,7 @@ export default async function MinhasApostasPage() {
         </div>
       </div>
 
-      <MyBetsView rounds={rounds} />
+      <MyBetsView rounds={rounds} currentUserId={user?.id} />
     </Container>
   )
 }

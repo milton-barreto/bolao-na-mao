@@ -2,16 +2,17 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Calendar, Search } from 'lucide-react'
+import { Calendar, Search, Users, Loader2 } from 'lucide-react'
 import { TierBadge, Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { TeamFlag } from '@/components/team-flag'
 import { EditBetDialog } from '@/components/edit-bet-dialog'
 import { ShareBetButton } from '@/components/share-bet-button'
+import { BetsPanel } from '@/components/bets-panel'
 import { formatKickoff, isDeadlinePassed } from '@/lib/datetime'
 import { previewPoints } from '@/lib/scoring'
 import { cn } from '@/lib/utils'
-import type { MyBetEntry } from '@/lib/actions/bets'
+import { getBetsForMatch, type BetEntry, type MyBetEntry } from '@/lib/actions/bets'
 import type { BetStatus } from '@/types'
 
 type Filter = 'todos' | 'acertei' | 'errei' | 'pendentes'
@@ -40,6 +41,46 @@ const STATUS_VARIANT: Record<
   pendente: 'travado',
 }
 
+function LazyBetsPanel({ matchId, currentUserId }: { matchId: string; currentUserId?: string }) {
+  const [state, setState] = useState<'idle' | 'loading' | 'done'>('idle')
+  const [bets, setBets] = useState<BetEntry[]>([])
+
+  async function load() {
+    if (state !== 'idle') return
+    setState('loading')
+    const data = await getBetsForMatch(matchId)
+    setBets(data)
+    setState('done')
+  }
+
+  if (state === 'done') {
+    return (
+      <div className="border-t border-border pt-1">
+        <BetsPanel bets={bets} currentUserId={currentUserId} defaultOpen />
+      </div>
+    )
+  }
+
+  return (
+    <div className="border-t border-border pt-3">
+      <button
+        type="button"
+        onClick={load}
+        disabled={state === 'loading'}
+        className="flex w-full items-center justify-between rounded-lg px-1 py-1 text-sm font-semibold text-brand-blue transition-colors hover:bg-brand-blue/10 disabled:opacity-60"
+      >
+        <span className="flex items-center gap-1.5">
+          <Users className="h-3.5 w-3.5" />
+          A galera chutou
+        </span>
+        {state === 'loading' ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : null}
+      </button>
+    </div>
+  )
+}
+
 function matchesFilter(status: BetStatus, hasBet: boolean, filter: Filter): boolean {
   if (filter === 'todos') return true
   if (filter === 'acertei')
@@ -49,7 +90,13 @@ function matchesFilter(status: BetStatus, hasBet: boolean, filter: Filter): bool
   return true
 }
 
-export function MyBetsView({ rounds }: { rounds: Record<number, MyBetEntry[]> }) {
+export function MyBetsView({
+  rounds,
+  currentUserId,
+}: {
+  rounds: Record<number, MyBetEntry[]>
+  currentUserId?: string
+}) {
   const [activeRound, setActiveRound] = useState(1)
   const [filter, setFilter] = useState<Filter>('todos')
 
@@ -167,7 +214,7 @@ export function MyBetsView({ rounds }: { rounds: Record<number, MyBetEntry[]> })
                     <TeamFlag
                       flagUrl={home?.flag_url ?? null}
                       teamName={home?.name ?? '?'}
-                      size={26}
+                      size={24}
                     />
                     <div className="flex flex-col">
                       <span className="text-sm font-semibold leading-tight">
@@ -191,7 +238,7 @@ export function MyBetsView({ rounds }: { rounds: Record<number, MyBetEntry[]> })
                     <TeamFlag
                       flagUrl={away?.flag_url ?? null}
                       teamName={away?.name ?? '?'}
-                      size={26}
+                      size={24}
                     />
                   </div>
                 </div>
@@ -262,6 +309,11 @@ export function MyBetsView({ rounds }: { rounds: Record<number, MyBetEntry[]> })
                     </div>
                   )}
                 </div>
+
+                {/* Palpites da galera — carregados sob demanda após deadline */}
+                {!isOpen && (
+                  <LazyBetsPanel matchId={match.id} currentUserId={currentUserId} />
+                )}
               </li>
             )
           })}

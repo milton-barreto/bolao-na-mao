@@ -51,8 +51,8 @@ export function ShareBetButton({
 
     try {
       // Fetch flags as base64 to avoid CORS issues inside html-to-image
-      // Upgrade to w160 for better quality in the share card
-      const hq = (url: string) => url.replace('/w40/', '/w160/')
+      // w320 (320×213px) garante downscale a 2.7x pixel ratio — sem blur
+      const hq = (url: string) => url.replace('/w40/', '/w320/')
       const [homeFlag, awayFlag] = await Promise.all([
         homeFlagUrl ? fetchAsDataUrl(hq(homeFlagUrl)) : Promise.resolve(null),
         awayFlagUrl ? fetchAsDataUrl(hq(awayFlagUrl)) : Promise.resolve(null),

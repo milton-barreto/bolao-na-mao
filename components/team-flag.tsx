@@ -8,10 +8,11 @@ interface TeamFlagProps {
   className?: string
 }
 
-/**
- * Bandeira de um time. Usa next/image com flagcdn.com (configurado em
- * next.config.ts). Fallback: círculo com a inicial se não houver flag_url.
- */
+// flagcdn.com armazena w40 no banco — upgrade para w160 para qualidade retina
+function hqFlagUrl(url: string): string {
+  return url.replace('/w40/', '/w160/')
+}
+
 export function TeamFlag({
   flagUrl,
   teamName,
@@ -22,7 +23,7 @@ export function TeamFlag({
     return (
       <span
         className={cn(
-          'inline-flex items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground',
+          'inline-flex shrink-0 items-center justify-center rounded-sm bg-muted font-semibold text-muted-foreground',
           className,
         )}
         style={{ width: size, height: size, fontSize: size * 0.45 }}
@@ -34,12 +35,17 @@ export function TeamFlag({
   }
 
   return (
-    <Image
-      src={flagUrl}
-      alt={`Bandeira ${teamName}`}
-      width={size}
-      height={Math.round(size * 0.75)}
-      className={cn('rounded-sm object-cover', className)}
-    />
+    <span
+      className={cn('relative inline-block shrink-0 overflow-hidden rounded-sm', className)}
+      style={{ width: size, height: size }}
+    >
+      <Image
+        src={hqFlagUrl(flagUrl)}
+        alt={`Bandeira ${teamName}`}
+        fill
+        sizes={`${size * 3}px`}
+        className="object-cover"
+      />
+    </span>
   )
 }

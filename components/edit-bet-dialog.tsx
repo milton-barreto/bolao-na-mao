@@ -75,7 +75,7 @@ export function EditBetDialog({ match, currentBet }: EditBetDialogProps) {
             <TeamFlag
               flagUrl={match.home_team?.flag_url ?? null}
               teamName={match.home_team?.name ?? '?'}
-              size={22}
+              size={24}
             />
             <span className="text-sm font-semibold">{match.home_team?.name}</span>
           </div>
@@ -85,7 +85,7 @@ export function EditBetDialog({ match, currentBet }: EditBetDialogProps) {
             <TeamFlag
               flagUrl={match.away_team?.flag_url ?? null}
               teamName={match.away_team?.name ?? '?'}
-              size={22}
+              size={24}
             />
           </div>
         </div>

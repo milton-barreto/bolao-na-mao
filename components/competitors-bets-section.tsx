@@ -1,11 +1,29 @@
 import { Users } from 'lucide-react'
+import { formatInTimeZone } from 'date-fns-tz'
+import { ptBR } from 'date-fns/locale'
 import { CompetitorsBetsList } from '@/components/competitors-bets-list'
 import { getTodayMatchesWithAllBets } from '@/lib/actions/bets'
+
+const TZ = 'America/Fortaleza'
+
+function matchDateLabel(matches: { match: { kickoff_at: string } }[]): string {
+  const uniqueDates = [
+    ...new Set(
+      matches.map((m) =>
+        formatInTimeZone(m.match.kickoff_at, TZ, 'dd MMM', { locale: ptBR }),
+      ),
+    ),
+  ]
+  return uniqueDates.join(' – ')
+}
 
 export async function CompetitorsBetsSection() {
   const todayMatches = await getTodayMatchesWithAllBets()
 
   if (todayMatches.length === 0) return null
+
+  const dateLabel = matchDateLabel(todayMatches)
+  const count = todayMatches.length
 
   return (
     <section className="flex flex-col gap-4">
@@ -16,7 +34,7 @@ export async function CompetitorsBetsSection() {
             Palpites da galera
           </h2>
           <p className="text-xs text-muted-foreground">
-            Jogos de hoje · {todayMatches.length} jogo{todayMatches.length > 1 ? 's' : ''}
+            {dateLabel} · {count} jogo{count > 1 ? 's' : ''}
           </p>
         </div>
       </div>

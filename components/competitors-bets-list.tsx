@@ -71,7 +71,7 @@ export function CompetitorsBetsList({ matches }: { matches: MatchBetsItem[] }) {
                 <TeamFlag
                   flagUrl={home?.flag_url ?? null}
                   teamName={home?.name ?? '?'}
-                  size={20}
+                  size={24}
                 />
                 <span className="text-sm font-semibold truncate">{home?.name}</span>
               </div>
@@ -97,7 +97,7 @@ export function CompetitorsBetsList({ matches }: { matches: MatchBetsItem[] }) {
                 <TeamFlag
                   flagUrl={away?.flag_url ?? null}
                   teamName={away?.name ?? '?'}
-                  size={20}
+                  size={24}
                 />
               </div>
 
