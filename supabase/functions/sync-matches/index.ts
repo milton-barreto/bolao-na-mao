@@ -116,16 +116,19 @@ Deno.serve(async () => {
     )
   }
 
-  // 3) Buscar manually_edited dos jogos existentes
-  const { data: existing } = await supabase
-    .from('matches')
-    .select('external_id, manually_edited')
+  // 3) Buscar manually_edited dos jogos existentes + IDs de times válidos
+  const [existingRes, teamsRes] = await Promise.all([
+    supabase.from('matches').select('external_id, manually_edited'),
+    supabase.from('teams').select('id'),
+  ])
 
   const editedSet = new Set(
-    (existing ?? [])
+    (existingRes.data ?? [])
       .filter((m) => m.manually_edited === true)
       .map((m) => m.external_id),
   )
+
+  const validTeamIds = new Set((teamsRes.data ?? []).map((t) => t.id))
 
   // 4) Upsert jogo a jogo
   for (const m of apiMatches) {
@@ -139,6 +142,12 @@ Deno.serve(async () => {
 
       // Sem TLA dos dois times (jogo TBD do mata-mata) → pula
       if (!homeTeam?.tla || !awayTeam?.tla) {
+        result.skipped++
+        continue
+      }
+
+      // Times não cadastrados no bolão (ex: Curaçao, qualificatórias) → pula
+      if (!validTeamIds.has(homeTeam.tla) || !validTeamIds.has(awayTeam.tla)) {
         result.skipped++
         continue
       }
