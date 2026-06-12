@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useEffect, useState } from 'react'
+import { Bell, X } from 'lucide-react'
 import { savePushSubscription } from '@/lib/actions/push'
 
 const PERMISSION_KEY = 'push_permission'
@@ -23,80 +23,102 @@ function bufferToBase64(buf: ArrayBuffer): string {
   return btoa(str)
 }
 
-async function getOrCreateSubscription(
-  reg: ServiceWorkerRegistration,
-  vapidKey: string,
-): Promise<PushSubscription | null> {
+async function subscribe(vapidKey: string): Promise<boolean> {
   try {
-    const existing = await reg.pushManager.getSubscription()
-    if (existing) return existing
-
-    return await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    const reg = await navigator.serviceWorker.ready
+    let sub = await reg.pushManager.getSubscription()
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      })
+    }
+    const p256dh = sub.getKey('p256dh')
+    const auth = sub.getKey('auth')
+    if (!p256dh || !auth) return false
+    await savePushSubscription({
+      endpoint: sub.endpoint,
+      p256dh: bufferToBase64(p256dh),
+      auth_key: bufferToBase64(auth),
     })
+    return true
   } catch (err) {
     console.error('[push] subscribe failed:', err)
-    return null
+    return false
   }
 }
 
 export function PushManager() {
+  // null = ainda verificando, false = não mostrar, true = mostrar banner
+  const [showBanner, setShowBanner] = useState<boolean>(false)
+
   useEffect(() => {
     if (!('PushManager' in window) || !('serviceWorker' in navigator)) return
+    if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) return
 
-    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    if (!vapidKey) return
-
-    const storedPermission = localStorage.getItem(PERMISSION_KEY)
-    if (storedPermission === 'denied') return
-
-    async function setupPush() {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
-
-      const currentPermission = Notification.permission
-
-      if (currentPermission === 'denied') {
-        localStorage.setItem(PERMISSION_KEY, 'denied')
-        return
-      }
-
-      // Se ainda não pediu permissão, pede agora
-      if (currentPermission === 'default') {
-        const result = await Notification.requestPermission()
-        localStorage.setItem(PERMISSION_KEY, result)
-        if (result !== 'granted') return
-      }
-
-      // Permissão concedida — garante que a subscription está ativa e salva
-      try {
-        const reg = await navigator.serviceWorker.ready
-        const sub = await getOrCreateSubscription(reg, vapidKey!)
-        if (!sub) return
-
-        const p256dh = sub.getKey('p256dh')
-        const auth = sub.getKey('auth')
-        if (!p256dh || !auth) return
-
-        await savePushSubscription({
-          endpoint: sub.endpoint,
-          p256dh: bufferToBase64(p256dh),
-          auth_key: bufferToBase64(auth),
-        })
-        localStorage.setItem(PERMISSION_KEY, 'granted')
-      } catch (err) {
-        console.error('[push] setup failed:', err)
-      }
+    const stored = localStorage.getItem(PERMISSION_KEY)
+    if (stored === 'denied') return
+    if (Notification.permission === 'denied') {
+      localStorage.setItem(PERMISSION_KEY, 'denied')
+      return
     }
 
-    // Pequeno delay para não competir com a carga inicial
-    const t = setTimeout(setupPush, 3500)
+    // Já concedido em sessão anterior → renovar subscription silenciosamente
+    if (Notification.permission === 'granted') {
+      subscribe(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY).catch(() => {})
+      return
+    }
+
+    // Ainda não pediu → mostrar banner (requer gesto do usuário no Chrome Android)
+    const t = setTimeout(() => setShowBanner(true), 1500)
     return () => clearTimeout(t)
   }, [])
 
-  return null
+  async function handleAllow() {
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+    const result = await Notification.requestPermission()
+    localStorage.setItem(PERMISSION_KEY, result)
+    setShowBanner(false)
+    if (result === 'granted') {
+      await subscribe(vapidKey)
+    }
+  }
+
+  function handleDismiss() {
+    localStorage.setItem(PERMISSION_KEY, 'dismissed')
+    setShowBanner(false)
+  }
+
+  if (!showBanner) return null
+
+  return (
+    <div className="fixed bottom-20 left-4 right-4 z-50 flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-lg">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10">
+        <Bell className="h-4 w-4 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold leading-tight">Ativar notificações</p>
+        <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+          Avisa quando seu palpite for julgado.
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={handleAllow}
+          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition-opacity active:opacity-80"
+        >
+          Ativar
+        </button>
+        <button
+          type="button"
+          onClick={handleDismiss}
+          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted"
+          aria-label="Fechar"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  )
 }

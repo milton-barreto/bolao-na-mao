@@ -64,7 +64,7 @@ export function EditBetDialog({ match, currentBet }: EditBetDialogProps) {
         </button>
       </DialogTrigger>
 
-      <DialogContent className="mx-4 max-w-sm rounded-2xl p-5">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-2xl p-5">
         <DialogHeader>
           <DialogTitle className="text-base font-bold">Editar palpite</DialogTitle>
         </DialogHeader>

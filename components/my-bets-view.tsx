@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Calendar, ChevronDown, Search, Users, Loader2 } from 'lucide-react'
+import { Calendar, Search, Users, Loader2 } from 'lucide-react'
 import { TierBadge, Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { TeamFlag } from '@/components/team-flag'
@@ -12,10 +12,16 @@ import { BetsPanel } from '@/components/bets-panel'
 import { formatKickoff, isDeadlinePassed } from '@/lib/datetime'
 import { previewPoints } from '@/lib/scoring'
 import { cn } from '@/lib/utils'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { getBetsForMatch, type BetEntry, type MyBetEntry } from '@/lib/actions/bets'
 import type { BetStatus } from '@/types'
 
-type Tab = number | 'extrato'
 type Filter = 'todos' | 'acertei' | 'errei' | 'pendentes'
 
 const FILTERS: { key: Filter; label: string }[] = [
@@ -99,126 +105,6 @@ function matchesFilter(status: BetStatus, hasBet: boolean, filter: Filter): bool
   return true
 }
 
-function ExtratoView({ rounds }: { rounds: Record<number, MyBetEntry[]> }) {
-  const roundNumbers = Object.keys(rounds).map(Number).sort((a, b) => a - b)
-  const [openRounds, setOpenRounds] = useState<Set<number>>(new Set(roundNumbers))
-
-  function toggle(r: number) {
-    setOpenRounds((prev) => {
-      const next = new Set(prev)
-      if (next.has(r)) next.delete(r)
-      else next.add(r)
-      return next
-    })
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      {roundNumbers.map((roundNum) => {
-        const entries = (rounds[roundNum] ?? []).filter((e) => e.bet)
-        const finished = entries.filter((e) => e.status !== 'pendente')
-        const roundTotal = finished.reduce((s, e) => s + (e.bet?.total_points ?? 0), 0)
-        const isOpen = openRounds.has(roundNum)
-
-        return (
-          <div key={roundNum} className="rounded-2xl border border-border overflow-hidden">
-            {/* Cabeçalho colapsável */}
-            <button
-              type="button"
-              onClick={() => toggle(roundNum)}
-              className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-muted/50"
-            >
-              <div className="flex items-center gap-2">
-                <ChevronDown
-                  className={cn(
-                    'h-4 w-4 text-muted-foreground transition-transform',
-                    isOpen && 'rotate-180',
-                  )}
-                />
-                <span className="text-sm font-semibold">Rodada {roundNum}</span>
-                <span className="text-xs text-muted-foreground">
-                  {entries.length} palpite{entries.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-              {finished.length > 0 && (
-                <span
-                  className={cn(
-                    'font-display text-sm font-bold',
-                    roundTotal > 0 ? 'text-success' : 'text-muted-foreground',
-                  )}
-                >
-                  {roundTotal > 0 ? '+' : ''}
-                  {roundTotal.toFixed(2).replace('.', ',')}
-                </span>
-              )}
-            </button>
-
-            {/* Lista colapsável */}
-            {isOpen && (
-              <div className="border-t border-border px-3 pb-3 pt-2">
-                {entries.length === 0 ? (
-                  <p className="py-2 text-center text-xs text-muted-foreground">
-                    Nenhum palpite nessa rodada.
-                  </p>
-                ) : (
-                  <ul className="flex flex-col gap-1.5">
-                    {entries.map(({ match, bet, status }) => {
-                      const home = match.home_team
-                      const away = match.away_team
-                      const isFinished = match.status === 'finished'
-
-                      return (
-                        <li
-                          key={match.id}
-                          className={cn(
-                            'flex items-center gap-2 rounded-xl px-3 py-2',
-                            isFinished ? 'bg-muted' : 'bg-muted/40',
-                          )}
-                        >
-                          {/* Times */}
-                          <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                            <TeamFlag flagUrl={home?.flag_url ?? null} teamName={home?.name ?? '?'} size={18} />
-                            <span className="text-[11px] font-semibold">
-                              {home?.name?.slice(0, 3).toUpperCase()}
-                            </span>
-                            <span className="font-display text-xs font-bold">
-                              {isFinished ? `${match.home_score ?? 0}-${match.away_score ?? 0}` : '×'}
-                            </span>
-                            <span className="text-[11px] font-semibold">
-                              {away?.name?.slice(0, 3).toUpperCase()}
-                            </span>
-                            <TeamFlag flagUrl={away?.flag_url ?? null} teamName={away?.name ?? '?'} size={18} />
-                          </div>
-
-                          {/* Meu chute */}
-                          <span className="shrink-0 text-[11px] text-muted-foreground">
-                            {bet!.predicted_home_score}-{bet!.predicted_away_score}
-                          </span>
-
-                          {/* Status + pontos */}
-                          <div className="flex shrink-0 flex-col items-end gap-0.5">
-                            <Badge variant={STATUS_VARIANT[status]} className="px-1.5 py-0 text-[9px]">
-                              {STATUS_LABEL[status]}
-                            </Badge>
-                            {bet!.total_points !== null && status !== 'errou' && (
-                              <span className="font-display text-[10px] font-bold text-success">
-                                +{bet!.total_points.toFixed(2).replace('.', ',')}
-                              </span>
-                            )}
-                          </div>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
 
 export function MyBetsView({
   rounds,
@@ -229,55 +115,33 @@ export function MyBetsView({
 }) {
   const roundNumbers = Object.keys(rounds).map(Number).sort((a, b) => a - b)
   const firstRound = roundNumbers[0] ?? 1
-  const [activeTab, setActiveTab] = useState<Tab>(firstRound)
+  const [activeRound, setActiveRound] = useState<number>(firstRound)
   const [filter, setFilter] = useState<Filter>('todos')
-
-  const activeRound = typeof activeTab === 'number' ? activeTab : firstRound
 
   const entries = rounds[activeRound] ?? []
   const filtered = entries.filter((e) => matchesFilter(e.status, !!e.bet, filter))
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Tabs: rodadas dinâmicas + Extrato — scroll horizontal */}
-      <div className="-mx-4 overflow-x-auto px-4 pb-1 scrollbar-none">
-        <div className="flex w-max gap-2">
+      {/* Seletor de rodada */}
+      <Select
+        value={String(activeRound)}
+        onValueChange={(v) => setActiveRound(Number(v))}
+      >
+        <SelectTrigger className="w-full rounded-xl font-semibold">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
           {roundNumbers.map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => setActiveTab(r)}
-              className={cn(
-                'shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors',
-                activeTab === r
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80',
-              )}
-            >
+            <SelectItem key={r} value={String(r)}>
               Rodada {r}
-            </button>
+            </SelectItem>
           ))}
-          <button
-            type="button"
-            onClick={() => setActiveTab('extrato')}
-            className={cn(
-              'shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors',
-              activeTab === 'extrato'
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80',
-            )}
-          >
-            Balanço
-          </button>
-        </div>
-      </div>
+        </SelectContent>
+      </Select>
 
-      {/* Extrato */}
-      {activeTab === 'extrato' && <ExtratoView rounds={rounds} />}
-
-      {/* Filtros de status — só nas abas de rodada */}
-      {activeTab !== 'extrato' && (
-        <div className="flex flex-wrap gap-2">
+      {/* Filtros de status */}
+      <div className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (
             <button
               key={f.key}
@@ -293,11 +157,10 @@ export function MyBetsView({
               {f.label}
             </button>
           ))}
-        </div>
-      )}
+      </div>
 
-      {/* Lista — só nas abas de rodada */}
-      {activeTab !== 'extrato' && filtered.length === 0 && (
+      {/* Lista */}
+      {filtered.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-12 text-center">
           <Search className="h-8 w-8 text-muted-foreground/50" />
           <p className="text-sm text-muted-foreground">
@@ -305,7 +168,7 @@ export function MyBetsView({
           </p>
         </div>
       )}
-      {activeTab !== 'extrato' && filtered.length > 0 && (
+      {filtered.length > 0 && (
         <ul className="flex flex-col gap-3">
           {filtered.map(({ match, bet, status }) => {
             const home = match.home_team
