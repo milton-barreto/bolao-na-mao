@@ -59,8 +59,8 @@ create table if not exists matches (
   round_number         int,
   kickoff_at           timestamptz not null,
 
-  -- deadline = kickoff_at - 1h (coluna gerada, imutável)
-  deadline_at          timestamptz generated always as (kickoff_at - interval '1 hour') stored,
+  -- deadline = kickoff_at - 15 min (coluna gerada, imutável)
+  deadline_at          timestamptz generated always as (kickoff_at - interval '15 minutes') stored,
 
   -- Placar nos 90 min (base para pontuação)
   home_score           int,
