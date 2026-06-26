@@ -46,11 +46,11 @@ export function isDeadlinePassed(deadlineUtc: string | Date): boolean {
 }
 
 /**
- * Retorna true se o deadline é em menos de 1 hora (alerta amarelo).
+ * Retorna true se o deadline é em menos de 15 minutos (alerta amarelo).
  */
 export function isDeadlineSoon(deadlineUtc: string | Date): boolean {
   const minutesLeft = differenceInMinutes(new Date(deadlineUtc), new Date())
-  return minutesLeft > 0 && minutesLeft <= 60
+  return minutesLeft > 0 && minutesLeft <= 15
 }
 
 /**
