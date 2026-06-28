@@ -47,7 +47,7 @@ export function BracketSlot({
       disabled={!isClickable}
       className={[
         'flex items-center gap-1.5 px-2 py-1 rounded border text-xs transition-all',
-        'w-[140px] h-8 flex-shrink-0 text-left overflow-hidden',
+        'w-full h-full flex-shrink-0 text-left overflow-hidden',
         STATUS_STYLES[resolvedStatus],
         isClickable ? 'cursor-pointer' : 'cursor-default',
       ].join(' ')}
