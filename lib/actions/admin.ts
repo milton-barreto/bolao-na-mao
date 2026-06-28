@@ -230,7 +230,6 @@ export async function adminUpdateMatch(
     })
 
     revalidatePath('/')
-    revalidatePath('/ranking')
     revalidatePath('/admin')
     revalidatePath('/minhas-apostas')
 
@@ -327,7 +326,6 @@ export async function adminForceMatchStatus(
     }
 
     revalidatePath('/')
-    revalidatePath('/ranking')
     revalidatePath('/admin')
 
     const msg = status === 'cancelled' ? TOAST.adminMatchCancelled : TOAST.adminMatchUpdated
@@ -497,7 +495,7 @@ export async function adminRecalcAllBets(): Promise<AdminActionResult & { count?
       reason: 'Recálculo manual via painel admin',
     })
 
-    revalidatePath('/ranking')
+    revalidatePath('/')
     revalidatePath('/minhas-apostas')
 
     return { success: true, message: TOAST.adminRecalcDone, count: count ?? 0 }
@@ -816,7 +814,7 @@ export async function adminExecuteRebalancing(
 
     const changed = (data ?? []).filter((r: { out_delta: number }) => r.out_delta !== 0).length
     revalidatePath('/admin')
-    revalidatePath('/ranking')
+    revalidatePath('/')
 
     return {
       success: true,

@@ -2,15 +2,17 @@ import Link from 'next/link'
 import { Suspense } from 'react'
 import { Timer, Zap, CheckCircle2, Calendar, ChevronRight } from 'lucide-react'
 import { Container } from '@/components/layout/container'
-import { Button } from '@/components/ui/button'
 import { TeamFlag } from '@/components/team-flag'
 import { CompetitorsBetsSection } from '@/components/competitors-bets-section'
+import { RankingSection } from '@/components/ranking-section'
+import { createClient } from '@/lib/supabase/server'
 import { getUpcomingMatches } from '@/lib/actions/matches'
+import { getRanking } from '@/lib/actions/ranking'
 import { getOdd } from '@/lib/odds'
 import { formatKickoff, isDeadlineSoon } from '@/lib/datetime'
 import type { MatchWithTeams } from '@/types'
 
-export const revalidate = 300
+export const revalidate = 60
 
 function maxPotential(homeTier: number, awayTier: number): number {
   const odds = [
@@ -83,7 +85,15 @@ function PendingMatchCard({
 }
 
 export default async function Home() {
-  const matches = await getUpcomingMatches(3)
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const [ranking, matches] = await Promise.all([
+    getRanking(user?.id),
+    getUpcomingMatches(3),
+  ])
 
   const urgentCount = matches.filter(
     (m) => m.deadline_at && isDeadlineSoon(m.deadline_at),
@@ -92,8 +102,15 @@ export default async function Home() {
   return (
     <Container className="py-6">
 
-      {/* Seção 1 — Palpites pendentes */}
+      {/* Seção 0 — Ranking (antes era a aba dedicada) */}
       <section className="mb-6">
+        <RankingSection entries={ranking} currentUserId={user?.id} />
+      </section>
+
+      <div className="border-t border-border" />
+
+      {/* Seção 1 — Palpites pendentes */}
+      <section className="my-6">
         <div className="mb-3 flex items-start justify-between">
           <div>
             <div className="flex items-center gap-2">
@@ -130,9 +147,6 @@ export default async function Home() {
             <p className="text-xs text-muted-foreground">
               Todos os próximos jogos já têm o seu palpite.
             </p>
-            <Button asChild variant="outline" size="sm" className="mt-1">
-              <Link href="/ranking">Ver o ranking</Link>
-            </Button>
           </div>
         ) : (
           <div className="flex flex-col gap-2">

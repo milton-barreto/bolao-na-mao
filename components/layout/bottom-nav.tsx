@@ -2,7 +2,7 @@
 
 import Link, { useLinkStatus } from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Swords, Trophy, User, Sword } from 'lucide-react'
+import { Home, Swords, Ticket, User, Sword } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
 
@@ -10,7 +10,7 @@ const navItems = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/minhas-apostas', label: 'Apostas', icon: Swords },
   { href: '/mata-mata', label: 'Mata-mata', icon: Sword },
-  { href: '/ranking', label: 'Ranking', icon: Trophy },
+  { href: '/bilhete-premiado', label: 'Bilhete', icon: Ticket },
   { href: '/perfil', label: 'Perfil', icon: User },
 ]
 
