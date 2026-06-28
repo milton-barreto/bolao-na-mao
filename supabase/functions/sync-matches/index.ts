@@ -157,6 +157,12 @@ Deno.serve(async () => {
 
       const isEdited = editedSet.has(extId)
 
+      // Jogo editado manualmente → pula completamente (fase, placar e status protegidos)
+      if (isEdited) {
+        result.skipped++
+        continue
+      }
+
       const base: Record<string, unknown> = {
         external_id: extId,
         home_team_id: homeTeam.tla,
@@ -165,14 +171,10 @@ Deno.serve(async () => {
         group_name: mapGroup((m as { group: string | null }).group),
         round_number: (m as { matchday: number | null }).matchday ?? null,
         kickoff_at: (m as { utcDate: string }).utcDate,
+        status: mapStatus((m as { status: string }).status),
+        home_score: score?.fullTime?.home ?? null,
+        away_score: score?.fullTime?.away ?? null,
         last_synced_at: new Date().toISOString(),
-      }
-
-      // Só atualiza placar/status se NÃO for manualmente editado
-      if (!isEdited) {
-        base.status = mapStatus((m as { status: string }).status)
-        base.home_score = score?.fullTime?.home ?? null
-        base.away_score = score?.fullTime?.away ?? null
       }
 
       const { error } = await supabase
