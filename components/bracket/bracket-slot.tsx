@@ -16,11 +16,11 @@ interface BracketSlotProps {
 }
 
 const STATUS_STYLES: Record<SlotStatus, string> = {
-  selected: 'bg-[var(--primary)] text-[var(--primary-fg)] border-[var(--primary)] font-semibold',
+  selected: 'bg-brand-yellow text-primary-foreground border-brand-yellow font-semibold shadow-sm',
   winner: 'bg-green-50 text-green-800 border-green-400 font-semibold',
   loser: 'bg-red-50 text-red-700 border-red-300 line-through opacity-60',
-  empty: 'bg-white text-[var(--text-secondary)] border-[var(--border)] hover:bg-[var(--bg-surface)]',
-  placeholder: 'bg-[var(--bg-surface)] text-[var(--text-disabled)] border-dashed border-[var(--border)]',
+  empty: 'bg-card text-muted-foreground border-border hover:border-brand-yellow hover:bg-muted',
+  placeholder: 'bg-muted text-muted-foreground border-dashed border-border',
 }
 
 export function BracketSlot({
@@ -45,8 +45,10 @@ export function BracketSlot({
       type="button"
       onClick={isClickable ? onClick : undefined}
       disabled={!isClickable}
+      title={teamName ?? undefined}
+      aria-label={teamName ?? 'Confronto a definir'}
       className={[
-        'flex items-center gap-1.5 px-2 py-1 rounded border text-xs transition-all',
+        'flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs transition-all',
         'w-full h-full flex-shrink-0 text-left overflow-hidden',
         STATUS_STYLES[resolvedStatus],
         isClickable ? 'cursor-pointer' : 'cursor-default',
@@ -66,7 +68,7 @@ export function BracketSlot({
       )}
 
       {/* Nome */}
-      <span className="flex-1 truncate leading-none">
+      <span className="flex-1 truncate leading-none font-display font-semibold tracking-tight">
         {isPlaceholder
           ? '?'
           : teamName

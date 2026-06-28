@@ -2,11 +2,12 @@
 
 import { useState, useCallback, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import { Pencil, Save, X } from 'lucide-react'
+import { Pencil, Save, X, MoveHorizontal } from 'lucide-react'
 import { BracketSlot } from './bracket-slot'
 import { useBracket } from './use-bracket'
 import { saveGoldenTicket } from '@/lib/actions/golden-ticket'
 import { TICKET_EDIT_DEADLINE } from '@/lib/constants'
+import { formatKickoff } from '@/lib/datetime'
 import type { GoldenTicketPredictions } from '@/types'
 import type { MatchWithTeams } from '@/types'
 
@@ -405,7 +406,13 @@ export function BracketSVG({
 
   return (
     <div>
-      <div className="overflow-x-auto pb-4">
+      {/* Dica de scroll (só mobile) */}
+      <p className="sm:hidden mb-2 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+        <MoveHorizontal className="h-3.5 w-3.5" aria-hidden />
+        Arraste para os lados pra ver o chaveamento todo
+      </p>
+
+      <div className="overflow-x-auto pb-4 -mx-4 px-4">
         <div style={{ minWidth: W }}>
           <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
             {/* Linhas de conexão (atrás) */}
@@ -473,7 +480,7 @@ export function BracketSVG({
             <button
               type="button"
               onClick={() => setIsEditing(true)}
-              className="flex items-center gap-2 px-5 py-2 rounded-lg border border-[var(--primary)] text-[var(--primary-fg)] bg-[var(--primary)] font-semibold text-sm hover:opacity-90 transition-opacity"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-brand-yellow bg-brand-yellow text-primary-foreground font-semibold text-sm shadow-sm hover:opacity-90 transition-opacity"
             >
               <Pencil className="h-4 w-4" />
               Alterar Bilhete
@@ -484,7 +491,7 @@ export function BracketSVG({
                 type="button"
                 onClick={handleSaveClick}
                 disabled={isSaving || !isDirty}
-                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-[var(--primary)] text-[var(--primary-fg)] font-semibold text-sm disabled:opacity-50 hover:opacity-90 transition-opacity"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-green text-white font-semibold text-sm shadow-sm disabled:opacity-50 hover:opacity-90 transition-opacity"
               >
                 <Save className="h-4 w-4" />
                 {isSaving ? 'Salvando...' : 'Salvar Bilhete'}
@@ -493,7 +500,7 @@ export function BracketSVG({
                 type="button"
                 onClick={handleCancel}
                 disabled={isSaving}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] text-sm hover:bg-[var(--bg-surface)] transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-muted-foreground text-sm hover:bg-muted transition-colors"
               >
                 <X className="h-4 w-4" />
                 Cancelar
@@ -501,8 +508,8 @@ export function BracketSVG({
             </div>
           )
         ) : !isBeforeDeadline ? (
-          <p className="text-sm text-[var(--text-secondary)]">
-            Prazo encerrado em 29/06 às 03:00. Torce e reza. 🙏
+          <p className="text-sm text-muted-foreground text-center">
+            Prazo encerrado em {formatKickoff(TICKET_EDIT_DEADLINE)}. Torce e reza. 🙏
           </p>
         ) : null}
       </div>

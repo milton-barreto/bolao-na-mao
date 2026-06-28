@@ -1,12 +1,22 @@
-import { Ticket, BarChart2 } from 'lucide-react'
+import { Ticket, BarChart2, Lock, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { Container } from '@/components/layout/container'
+import { Badge } from '@/components/ui/badge'
 import { BracketSVG } from '@/components/bracket/bracket-svg'
 import { getTournamentState, getGoldenTicket, getGoldenTicketPoints } from '@/lib/actions/golden-ticket'
 import { getKnockoutMatches } from '@/lib/actions/knockout'
-import { isTicketEditable } from '@/lib/constants'
+import { isTicketEditable, TICKET_EDIT_DEADLINE } from '@/lib/constants'
 import { TICKET_POINTS, TICKET_CHAMPION_POINTS } from '@/lib/constants'
+import { formatKickoff } from '@/lib/datetime'
 import type { GoldenTicketPredictions, MatchWithTeams } from '@/types'
+
+const MAX_TICKET_POINTS =
+  TICKET_POINTS.r32 * 16 +
+  TICKET_POINTS.r16 * 8 +
+  TICKET_POINTS.qf * 4 +
+  TICKET_POINTS.sf * 2 +
+  TICKET_POINTS.final * 1 +
+  TICKET_CHAMPION_POINTS
 
 export const dynamic = 'force-dynamic'
 
@@ -34,6 +44,9 @@ export default async function BilhetePremiadoPage() {
 
   const isLocked = !tournamentState || !isTicketEditable(tournamentState)
   const lockedAt = ticket?.locked_at
+  const deadlineLabel = formatKickoff(TICKET_EDIT_DEADLINE)
+  const pointsPct = Math.min(100, Math.round((ticketPoints / MAX_TICKET_POINTS) * 100))
+  const pointsLabel = Number.isInteger(ticketPoints) ? `${ticketPoints}` : ticketPoints.toFixed(1)
 
   // Resultados reais para badges (acertou/errou)
   const actualResults = await (async () => {
@@ -54,57 +67,80 @@ export default async function BilhetePremiadoPage() {
   })()
 
   return (
-    <Container className="py-4 pb-8">
+    <Container className="py-6 pb-8">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="flex items-center gap-2 text-xl font-bold font-display">
-          <Ticket className="h-5 w-5" />
-          Bilhete Premiado
-        </h1>
+      <div className="rounded-2xl border border-border bg-card p-4 mb-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="flex items-center gap-2 text-2xl font-bold font-display leading-tight">
+              <Ticket className="h-6 w-6 text-brand-yellow shrink-0" aria-hidden />
+              Bilhete Premiado
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Monta o teu chaveamento dos sonhos 🏆
+            </p>
+          </div>
+          {isLocked ? (
+            <Badge variant="travado" className="gap-1 shrink-0">
+              <Lock className="h-3 w-3" aria-hidden /> Travado
+            </Badge>
+          ) : (
+            <Badge variant="warning" className="gap-1 shrink-0">
+              <Clock className="h-3 w-3" aria-hidden /> Aberto
+            </Badge>
+          )}
+        </div>
+
+        {/* Pontos + progresso */}
+        <div className="mt-4 rounded-xl bg-muted p-3">
+          <div className="flex items-end justify-between gap-2">
+            <span className="text-xs font-medium text-muted-foreground">Seus pontos</span>
+            <span className="text-xs text-muted-foreground">máx {MAX_TICKET_POINTS} pts</span>
+          </div>
+          <p className="font-display text-3xl font-bold leading-none mt-1">
+            {pointsLabel}
+            <span className="text-base font-semibold text-muted-foreground"> / {MAX_TICKET_POINTS} pts</span>
+          </p>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-border" aria-hidden>
+            <div
+              className="h-full rounded-full bg-brand-green transition-all"
+              style={{ width: `${pointsPct}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Status / deadline */}
         {isLocked ? (
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
+          <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
             Bilhete travado. Torce e reza. 🙏
             {lockedAt && (
-              <span className="ml-1 text-xs">
-                (travado em {new Date(lockedAt).toLocaleDateString('pt-BR')})
-              </span>
+              <span>(em {new Date(lockedAt).toLocaleDateString('pt-BR')})</span>
             )}
           </p>
         ) : (
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Monta o teu chaveamento dos sonhos 🏆 — clica em <strong>Alterar Bilhete</strong> para editar e depois <strong>Salvar</strong>.
+          <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Clock className="h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
+            Dá pra editar até <strong className="text-foreground">{deadlineLabel}</strong>
           </p>
         )}
       </div>
 
-      {/* Pontuação do bilhete */}
-      {ticketPoints > 0 && (
-        <div className="rounded-xl border border-[var(--primary)] bg-amber-50 p-4 mb-6 text-center">
-          <p className="text-sm text-[var(--text-secondary)]">Seus pontos no bilhete</p>
-          <p className="text-3xl font-bold font-display text-[var(--primary-fg)]">
-            {ticketPoints.toFixed(1)} pts
-          </p>
-          <p className="text-xs text-[var(--text-secondary)] mt-1">
-            dá pra chegar em {16 + 16 + 20 + 10 + 5 + 10} pts
-          </p>
-        </div>
-      )}
-
       {/* Tabela de pontuação */}
-      <details className="mb-4 border border-[var(--border)] rounded-lg">
-        <summary className="flex items-center gap-2 px-4 py-2 text-sm font-medium cursor-pointer">
-          <BarChart2 className="h-4 w-4" /> Como funciona isso aqui
+      <details className="mb-4 rounded-2xl border border-border bg-card group">
+        <summary className="flex items-center gap-2 px-4 py-3 text-sm font-medium cursor-pointer select-none">
+          <BarChart2 className="h-4 w-4 text-brand-blue" aria-hidden /> Como funciona a pontuação
         </summary>
         <div className="px-4 pb-3">
-          <table className="w-full text-xs mt-2">
+          <table className="w-full text-xs mt-1">
             <thead>
-              <tr className="text-[var(--text-secondary)] border-b border-[var(--border)]">
-                <th className="text-left py-1">Fase</th>
-                <th className="text-right py-1">Pts/acerto</th>
-                <th className="text-right py-1">Máx</th>
+              <tr className="text-muted-foreground border-b border-border">
+                <th className="text-left py-1.5">Fase</th>
+                <th className="text-right py-1.5">Pts/acerto</th>
+                <th className="text-right py-1.5">Máx</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border)]">
+            <tbody className="divide-y divide-border">
               {[
                 { label: '16-avos', pts: TICKET_POINTS.r32, matches: 16 },
                 { label: 'Oitavas', pts: TICKET_POINTS.r16, matches: 8 },
@@ -114,9 +150,9 @@ export default async function BilhetePremiadoPage() {
                 { label: 'Campeão (bônus)', pts: TICKET_CHAMPION_POINTS, matches: 1 },
               ].map((row) => (
                 <tr key={row.label}>
-                  <td className="py-1">{row.label}</td>
+                  <td className="py-1.5">{row.label}</td>
                   <td className="text-right">{row.pts} pts</td>
-                  <td className="text-right font-medium">{row.pts * row.matches} pts</td>
+                  <td className="text-right font-medium font-display">{row.pts * row.matches} pts</td>
                 </tr>
               ))}
             </tbody>
@@ -126,9 +162,10 @@ export default async function BilhetePremiadoPage() {
 
       {/* Bracket SVG */}
       {r32Matches.length === 0 ? (
-        <div className="text-center py-8 text-[var(--text-secondary)]">
-          <p>Os confrontos ainda não saíram do forno. 🔥</p>
-          <p className="text-xs mt-1">Aguarda o admin configurar os jogos. 🙏</p>
+        <div className="flex flex-col items-center gap-3 py-12 text-center">
+          <span className="text-4xl" aria-hidden>🔥</span>
+          <p className="text-sm font-semibold">Os confrontos ainda não saíram do forno.</p>
+          <p className="text-xs text-muted-foreground">Aguarda o admin configurar os jogos. 🙏</p>
         </div>
       ) : (
         <BracketSVG
