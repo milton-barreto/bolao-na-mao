@@ -85,12 +85,12 @@ export function KnockoutMatchCard({
   return (
     <div className={`rounded-xl border p-4 space-y-3 ${isLocked ? 'bg-[var(--bg-surface)]' : 'bg-white'}`}>
       {/* Header: times + tiers + badge travado */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           {home && <TeamFlag flagUrl={home.flag_url} teamName={home.name} size={28} />}
-          <div>
-            <span className="font-semibold text-sm">{home?.name ?? '?'}</span>
-            <div><TierBadge tier={(homeTier as 1|2|3|4|5)} /></div>
+          <div className="min-w-0">
+            <span className="block truncate font-semibold text-sm">{home?.name ?? '?'}</span>
+            <TierBadge tier={(homeTier as 1|2|3|4|5)} />
           </div>
         </div>
 
@@ -104,7 +104,7 @@ export function KnockoutMatchCard({
             <span className="text-xs text-[var(--text-secondary)]">vs</span>
           )}
           {match.status === 'live' && (
-            <Badge variant="warning" className="text-xs">AO VIVO 🔴</Badge>
+            <Badge variant="warning" className="text-xs whitespace-nowrap">AO VIVO 🔴</Badge>
           )}
           {match.home_score !== null && match.away_score !== null && (
             <span className="text-lg font-bold font-display">
@@ -113,9 +113,9 @@ export function KnockoutMatchCard({
           )}
         </div>
 
-        <div className="flex items-center gap-2 text-right">
-          <div>
-            <span className="font-semibold text-sm">{away?.name ?? '?'}</span>
+        <div className="flex min-w-0 items-center justify-end gap-2 text-right">
+          <div className="min-w-0">
+            <span className="block truncate font-semibold text-sm">{away?.name ?? '?'}</span>
             <div className="flex justify-end"><TierBadge tier={(awayTier as 1|2|3|4|5)} /></div>
           </div>
           {away && <TeamFlag flagUrl={away.flag_url} teamName={away.name} size={28} />}
@@ -172,21 +172,21 @@ export function KnockoutMatchCard({
           {/* Quem avança */}
           <div className="space-y-1">
             <p className="text-xs text-center text-[var(--text-secondary)]">Quem avança?</p>
-            <div className="flex justify-center gap-2">
+            <div className="flex flex-wrap justify-center gap-2">
               {[home, away].filter(Boolean).map((team) => (
                 <button
                   key={team!.id}
                   type="button"
                   onClick={() => setAdvancingTeamId(team!.id)}
                   className={[
-                    'flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium transition-all',
+                    'flex min-w-0 items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium transition-all',
                     advancingTeamId === team!.id
                       ? 'bg-[var(--primary)] border-[var(--primary)] text-[var(--primary-fg)]'
                       : 'bg-white border-[var(--border)] hover:border-[var(--primary)]',
                   ].join(' ')}
                 >
                   <TeamFlag flagUrl={team!.flag_url} teamName={team!.name} size={16} />
-                  {team!.name.split(' ')[0]}
+                  <span className="truncate">{team!.name.split(' ')[0]}</span>
                 </button>
               ))}
             </div>
@@ -227,15 +227,15 @@ export function KnockoutMatchCard({
             <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
               {otherBets.map((b) => (
                 <div key={b.user_id} className="flex items-center gap-2 text-xs py-1 border-b border-[var(--border)] last:border-0">
-                  <span className="font-medium flex-1">{b.user_name}</span>
-                  <span>{b.predicted_home_score}–{b.predicted_away_score}</span>
+                  <span className="font-medium flex-1 min-w-0 truncate">{b.user_name}</span>
+                  <span className="whitespace-nowrap">{b.predicted_home_score}–{b.predicted_away_score}</span>
                   {b.predicted_advancing_team_id && (
-                    <span className="text-[var(--text-secondary)]">
+                    <span className="text-[var(--text-secondary)] max-w-[5rem] truncate">
                       {[home, away].find((t) => t?.id === b.predicted_advancing_team_id)?.name?.split(' ')[0] ?? '?'}
                     </span>
                   )}
                   {b.total_points !== null && (
-                    <span className="text-success font-bold">
+                    <span className="text-success font-bold whitespace-nowrap">
                       {b.total_points.toFixed(1)} pts
                     </span>
                   )}
