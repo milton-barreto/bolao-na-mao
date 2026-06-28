@@ -60,7 +60,7 @@ create table if not exists matches (
   kickoff_at           timestamptz not null,
 
   -- deadline = kickoff_at - 10 min (coluna gerada, imutável)
-  deadline_at          timestamptz generated always as (kickoff_at - interval '10 minutes') stored,
+  deadline_at          timestamptz generated always as (kickoff_at - make_interval(mins => 10)) stored,
 
   -- Placar nos 90 min (base para pontuação)
   home_score           int,
