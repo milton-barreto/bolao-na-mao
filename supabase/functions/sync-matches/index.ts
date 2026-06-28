@@ -37,7 +37,10 @@ function mapPhase(stage: string): string {
   switch (stage) {
     case 'GROUP_STAGE':
       return 'group'
+    case 'ROUND_OF_32':   // Copa 2026: 48 times → 16-avos de final
+      return 'r32'
     case 'LAST_16':
+    case 'ROUND_OF_16':
       return 'r16'
     case 'QUARTER_FINALS':
       return 'qf'
