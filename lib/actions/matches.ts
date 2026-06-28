@@ -30,6 +30,7 @@ export async function getUpcomingMatches(limit = 5): Promise<MatchWithTeams[]> {
     .select(
       `*, home_team:teams!matches_home_team_id_fkey(*), away_team:teams!matches_away_team_id_fkey(*)`,
     )
+    .eq('phase', 'group')
     .gt('deadline_at', new Date().toISOString())
     .in('status', ['scheduled', 'live'])
     .order('kickoff_at', { ascending: true })
