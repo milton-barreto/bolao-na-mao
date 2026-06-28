@@ -10,6 +10,7 @@ const PUBLIC_ROUTES = [
   '/recuperar-senha',
   '/atualizar-senha',
   '/auth/callback',
+  '/manutencao',
 ]
 
 /** Rotas onde um usuário JÁ logado não deveria ficar (manda pra Home) */
@@ -57,7 +58,33 @@ export async function updateSession(request: NextRequest) {
     return redirectPreservingCookies(request, supabaseResponse, '/')
   }
 
-  // 3) Rota /admin → só is_admin
+  // 3) Modo manutenção → só admin passa
+  if (!pathname.startsWith('/manutencao')) {
+    const { data: config } = await supabase
+      .from('app_config')
+      .select('value')
+      .eq('key', 'maintenance_mode')
+      .maybeSingle()
+
+    const isInMaintenance = config?.value === true
+
+    if (isInMaintenance) {
+      let isAdmin = false
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', user.id)
+          .single()
+        isAdmin = profile?.is_admin ?? false
+      }
+      if (!isAdmin) {
+        return redirectPreservingCookies(request, supabaseResponse, '/manutencao')
+      }
+    }
+  }
+
+  // 4) Rota /admin → só is_admin
   if (user && pathname.startsWith('/admin')) {
     const { data: profile } = await supabase
       .from('profiles')
