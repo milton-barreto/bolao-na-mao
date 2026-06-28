@@ -61,7 +61,10 @@ export async function saveGoldenTicket(
       { onConflict: 'user_id' },
     )
 
-  if (error) return { error: 'Erro ao salvar o bilhete. Tenta de novo.' }
+  if (error) {
+    console.error('[saveGoldenTicket] Supabase error:', error)
+    return { error: `Erro ao salvar o bilhete: ${error.message}` }
+  }
 
   revalidatePath('/bilhete-premiado')
   return { success: true }
