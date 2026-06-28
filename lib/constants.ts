@@ -88,7 +88,7 @@ export const TOAST = {
   noInternet: 'Caiu a internet, ó. Tenta de novo.',
   loginError: 'Senha errada, mano. Tenta de novo.',
   emailNotAllowed: 'Tu não tá na lista, brother. Pede o admin pra liberar.',
-  deadlineSoon: 'Ó o relógio! Falta menos de 15 minutos pro jogo.',
+  deadlineSoon: 'Ó o relógio! Falta menos de 10 minutos pro jogo.',
   betExact: 'MITOU! Acertou na mosca. 🎯',
   betResult: 'Foi por pouco, mas tá valendo!',
   betWrong: 'Vish, deu ruim. Bora pro próximo.',
