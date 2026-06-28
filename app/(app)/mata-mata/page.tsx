@@ -1,5 +1,6 @@
 import { Clock, Swords, Lock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { Container } from '@/components/layout/container'
 import { KnockoutMatchCard } from '@/components/knockout-match-card'
 import { getTournamentState } from '@/lib/actions/golden-ticket'
 import { getKnockoutMatches, getKnockoutBetsForMatch } from '@/lib/actions/knockout'
@@ -27,13 +28,13 @@ export default async function MataMataPage({ searchParams }: Props) {
   // Fase de grupos ainda: mostrar aviso
   if (tournamentState === 'group') {
     return (
-      <div className="container py-12 text-center space-y-3">
+      <Container className="py-12 text-center space-y-3">
         <Clock className="mx-auto h-10 w-10 text-muted-foreground/50" />
         <p className="text-lg font-semibold">Calma aí! ⏳</p>
         <p className="text-sm text-[var(--text-secondary)]">
           O mata-mata aparece aqui quando acabar a fase de grupos. Vai chegando!
         </p>
-      </div>
+      </Container>
     )
   }
 
@@ -65,14 +66,14 @@ export default async function MataMataPage({ searchParams }: Props) {
   )
 
   return (
-    <div className="container py-4 pb-8">
+    <Container className="py-4 pb-8">
       <h1 className="mb-4 flex items-center gap-2 font-display text-xl font-bold">
         <Swords className="h-5 w-5" />
         Mata-mata
       </h1>
 
       {/* Abas de fase */}
-      <div className="flex overflow-x-auto gap-0 border-b border-[var(--border)] mb-6 -mx-4 px-4">
+      <div className="flex overflow-x-auto gap-0 border-b border-[var(--border)] mb-6 -mx-4 px-4 md:-mx-6 md:px-6">
         {PHASES.map((p) => {
           const available = tournamentState ? isPhaseAvailable(tournamentState, p.id) : false
           const isActive = p.id === activePhase
@@ -121,6 +122,6 @@ export default async function MataMataPage({ searchParams }: Props) {
           ))}
         </div>
       )}
-    </div>
+    </Container>
   )
 }
