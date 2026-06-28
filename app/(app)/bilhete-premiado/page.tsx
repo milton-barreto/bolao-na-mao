@@ -10,6 +10,22 @@ import type { GoldenTicketPredictions, MatchWithTeams } from '@/types'
 export const dynamic = 'force-dynamic'
 
 export default async function BilhetePremiadoPage() {
+  const supabase = await createClient()
+
+  // Verificar se é admin — se não for, mostra manutenção para usuários normais
+  const { data: isAdmin } = await supabase.rpc('is_admin')
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center gap-3 container py-12 text-center">
+        <Ticket className="h-10 w-10 text-muted-foreground/50" />
+        <h1 className="text-xl font-bold">Bilhete Premiado</h1>
+        <p className="text-sm text-[var(--text-secondary)]">
+          Estamos preparando tudo pra você! 🔧 Volta em breve.
+        </p>
+      </div>
+    )
+  }
+
   const tournamentState = await getTournamentState()
 
   // Mostrar aviso se ainda fase de grupos
@@ -25,7 +41,6 @@ export default async function BilhetePremiadoPage() {
     )
   }
 
-  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   // Carrega dados em paralelo
