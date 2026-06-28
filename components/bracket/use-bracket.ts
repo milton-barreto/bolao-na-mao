@@ -1,6 +1,6 @@
 'use client'
 
-import { useReducer, useEffect, useRef, useCallback } from 'react'
+import { useReducer, useEffect, useCallback, useState } from 'react'
 import type { GoldenTicketPredictions } from '@/types'
 import type { MatchWithTeams } from '@/types'
 
@@ -12,33 +12,6 @@ export type BracketAction =
   | { type: 'SET_CHAMPION'; teamId: string }
   | { type: 'LOAD'; predictions: GoldenTicketPredictions }
 
-/**
- * Dado o slot de R32 (0-15), retorna o slot de R16 (0-7) que
- * esse confronto alimenta. Bracket padrão: pares consecutivos.
- */
-function r32SlotToR16Slot(r32Slot: number): number {
-  return Math.floor(r32Slot / 2)
-}
-
-/**
- * Dado o slot de R16 (0-7), retorna o slot de QF (0-3).
- */
-function r16SlotToQFSlot(r16Slot: number): number {
-  return Math.floor(r16Slot / 2)
-}
-
-function qfSlotToSFSlot(qfSlot: number): number {
-  return Math.floor(qfSlot / 2)
-}
-
-function sfSlotToFinalSlot(_sfSlot: number): 0 {
-  return 0
-}
-
-/**
- * Verifica se um teamId aparece em qualquer fase posterior às predictions
- * e retorna quais slots devem ser limpos.
- */
 function clearCascade(
   state: GoldenTicketPredictions,
   phase: 'r16' | 'qf' | 'sf' | 'champion',
@@ -51,7 +24,6 @@ function clearCascade(
   const teamIsChampion = state.champion === teamId
 
   if (phase === 'r16' || teamInR16) {
-    // Limpa o slot de R16 que tinha este time
     const r16Entries = Object.entries(state.r16) as [string, string][]
     const r16Slot = r16Entries.find(([, t]) => t === teamId)
     if (r16Slot) {
@@ -94,7 +66,6 @@ function bracketReducer(
       return action.predictions
 
     case 'SET_R32': {
-      // Ao trocar uma escolha de R32, limpa fases posteriores afetadas
       const prevTeamId = state.r32[action.matchId]
       const cascade = prevTeamId ? clearCascade(state, 'r16', prevTeamId) : {}
       return {
@@ -162,39 +133,34 @@ export function useBracket({ initial, r32Matches, onSave, readOnly = false }: Us
     bracketReducer,
     initial ?? EMPTY_PREDICTIONS,
   )
+  const [isDirty, setIsDirty] = useState(false)
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isMounted = useRef(false)
-
-  // Carrega predictions iniciais
   useEffect(() => {
     if (initial) {
       dispatch({ type: 'LOAD', predictions: initial })
     }
-    isMounted.current = true
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-save com debounce de 1s
-  useEffect(() => {
-    if (!isMounted.current || readOnly) return
-
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(async () => {
-      const result = await onSave(predictions)
-      if ('error' in result) {
-        console.warn('[bracket] save failed:', result.error)
-      }
-    }, 1000)
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
+  const dispatchAndDirty = useCallback((action: BracketAction) => {
+    if (!readOnly) {
+      dispatch(action)
+      setIsDirty(true)
     }
-  }, [predictions, onSave, readOnly])
+  }, [readOnly])
 
-  /**
-   * Retorna os times disponíveis para um slot de R16.
-   * São os vencedores dos dois confrontos de R32 que alimentam esse slot.
-   */
+  const save = useCallback(async (): Promise<{ success: true } | { error: string }> => {
+    const result = await onSave(predictions)
+    if (!('error' in result)) {
+      setIsDirty(false)
+    }
+    return result
+  }, [predictions, onSave])
+
+  const resetPredictions = useCallback((pred: GoldenTicketPredictions | null) => {
+    dispatch({ type: 'LOAD', predictions: pred ?? EMPTY_PREDICTIONS })
+    setIsDirty(false)
+  }, [])
+
   const getR16Teams = useCallback(
     (r16Slot: number): { teamId: string; teamName: string; flagUrl: string | null }[] => {
       const r32Match1 = r32Matches.find((m) => m.bracket_slot === r16Slot * 2)
@@ -221,5 +187,5 @@ export function useBracket({ initial, r32Matches, onSave, readOnly = false }: Us
     [predictions.r32, r32Matches],
   )
 
-  return { predictions, dispatch, getR16Teams }
+  return { predictions, dispatch: dispatchAndDirty, getR16Teams, isDirty, save, resetPredictions }
 }
