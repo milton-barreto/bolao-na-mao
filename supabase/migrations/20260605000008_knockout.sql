@@ -63,7 +63,7 @@ create policy "golden_tickets: update proprio nao travado"
   on golden_tickets for update
   to authenticated
   using (user_id = auth.uid() and locked_at is null)
-  with check (user_id = auth.uid());
+  with check (user_id = auth.uid() and locked_at is null);
 
 create policy "golden_tickets: admin pode tudo"
   on golden_tickets for all
