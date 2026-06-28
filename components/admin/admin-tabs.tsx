@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Mail, Calendar, BarChart3, Wifi, FileText } from 'lucide-react'
+import { Container } from '@/components/layout/container'
 import { EmailsTab } from './emails-tab'
 import { MatchesTab } from './matches-tab'
 import { TiersTab } from './tiers-tab'
@@ -51,12 +52,12 @@ export function AdminTabs({
     <div className="min-h-screen">
       {/* Header */}
       <div className="border-b border-[var(--border)] bg-white sticky top-0 z-10">
-        <div className="container">
+        <Container>
           <h1 className="text-lg font-bold py-3 text-[var(--text-primary)]">
             🔧 Painel Admin
           </h1>
           {/* Abas — scroll horizontal no mobile */}
-          <div className="flex overflow-x-auto gap-0 -mb-px pb-0">
+          <div className="flex overflow-x-auto gap-0 -mb-px pb-0 -mx-4 px-4 md:-mx-6 md:px-6">
             {TABS.map(({ id, label, Icon }) => (
               <button
                 key={id}
@@ -72,17 +73,17 @@ export function AdminTabs({
               </button>
             ))}
           </div>
-        </div>
+        </Container>
       </div>
 
       {/* Conteúdo */}
-      <div className="container py-6">
+      <Container className="py-6">
         {activeTab === 'emails' && <EmailsTab emails={emails} />}
         {activeTab === 'jogos' && <MatchesTab matches={matches} />}
         {activeTab === 'tiers' && <TiersTab teams={teams} />}
         {activeTab === 'api' && <ApiTab apiStatus={apiStatus} currentBanner={currentBanner} tournamentState={tournamentState} />}
         {activeTab === 'logs' && <LogsTab logs={logs} />}
-      </div>
+      </Container>
     </div>
   )
 }

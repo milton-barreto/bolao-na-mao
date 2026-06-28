@@ -1,5 +1,6 @@
 import { Ticket, BarChart2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { Container } from '@/components/layout/container'
 import { BracketSVG } from '@/components/bracket/bracket-svg'
 import { getTournamentState, getGoldenTicket, getGoldenTicketPoints } from '@/lib/actions/golden-ticket'
 import { getKnockoutMatches } from '@/lib/actions/knockout'
@@ -53,7 +54,7 @@ export default async function BilhetePremiadoPage() {
   })()
 
   return (
-    <div className="container py-4 pb-8">
+    <Container className="py-4 pb-8">
       {/* Header */}
       <div className="mb-6">
         <h1 className="flex items-center gap-2 text-xl font-bold font-display">
@@ -137,6 +138,6 @@ export default async function BilhetePremiadoPage() {
           actualResults={actualResults}
         />
       )}
-    </div>
+    </Container>
   )
 }
