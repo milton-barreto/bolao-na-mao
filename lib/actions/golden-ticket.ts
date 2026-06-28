@@ -50,6 +50,23 @@ export async function saveGoldenTicket(
     return { error: 'Prazo encerrado. O bilhete está travado. 🙏' }
   }
 
+  // Busca bilhete existente para verificar se está travado
+  const { data: existing, error: fetchError } = await supabase
+    .from('golden_tickets')
+    .select('locked_at')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (fetchError) {
+    console.error('[saveGoldenTicket] Fetch error:', fetchError)
+    return { error: `Erro ao buscar bilhete: ${fetchError.message}` }
+  }
+
+  // Se existe e está travado, não permite
+  if (existing?.locked_at) {
+    return { error: 'Bilhete travado. Não é possível editar mais. 🙏' }
+  }
+
   // Upsert
   const { error } = await supabase
     .from('golden_tickets')
