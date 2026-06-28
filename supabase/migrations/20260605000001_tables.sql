@@ -59,8 +59,9 @@ create table if not exists matches (
   round_number         int,
   kickoff_at           timestamptz not null,
 
-  -- deadline = kickoff_at - 10 min (coluna gerada, imutável)
-  deadline_at          timestamptz generated always as (kickoff_at - make_interval(mins => 10)) stored,
+  -- deadline = kickoff_at - 1h (coluna gerada — só funciona em CREATE TABLE, não em ALTER TABLE)
+  -- Em produção, substituída por trigger via migration 20260628000000
+  deadline_at          timestamptz generated always as (kickoff_at - interval '1 hour') stored,
 
   -- Placar nos 90 min (base para pontuação)
   home_score           int,
