@@ -42,7 +42,7 @@ export default async function BilhetePremiadoPage() {
     champion: null,
   }
 
-  const isLocked = !tournamentState || !isTicketEditable(tournamentState)
+  const isLocked = !tournamentState || !isTicketEditable(tournamentState) || !!ticket?.locked_at
   const lockedAt = ticket?.locked_at
   const deadlineLabel = formatKickoff(TICKET_EDIT_DEADLINE)
   const pointsPct = Math.min(100, Math.round((ticketPoints / MAX_TICKET_POINTS) * 100))

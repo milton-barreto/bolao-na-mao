@@ -721,16 +721,9 @@ export async function adminAdvanceTournamentState(
 
     if (error) return { error: TOAST.genericError }
 
-    // Se avançando para r32 (início do mata-mata): trava todos os bilhetes abertos
-    if (newState === 'r32') {
-      const { data: lockedCount } = await supabase.rpc('lock_all_golden_tickets')
-      await supabase.from('admin_logs').insert({
-        action: 'lock_golden_tickets',
-        admin_id: adminId,
-        target_table: 'golden_tickets',
-        reason: `${lockedCount ?? 0} bilhetes travados ao iniciar mata-mata`,
-      })
-    }
+    // Nota: não faz auto-lock aqui. Os bilhetes são protegidos pelo TICKET_EDIT_DEADLINE
+    // que verifica se new Date() >= deadline no saveGoldenTicket(). O lock_all_golden_tickets()
+    // pode ser chamado manualmente via cron ou admin se necessário após deadline passar.
 
     await supabase.from('admin_logs').insert({
       action: 'advance_tournament_state',
