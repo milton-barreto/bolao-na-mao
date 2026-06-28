@@ -28,19 +28,6 @@ export default async function BilhetePremiadoPage() {
 
   const tournamentState = await getTournamentState()
 
-  // Mostrar aviso se ainda fase de grupos
-  if (tournamentState === 'group') {
-    return (
-      <div className="flex flex-col items-center gap-3 container py-12 text-center">
-        <Ticket className="h-10 w-10 text-muted-foreground/50" />
-        <h1 className="text-xl font-bold">Bilhete Premiado</h1>
-        <p className="text-sm text-[var(--text-secondary)]">
-          Ainda não, parceiro! Isso só abre quando acabar a fase de grupos e os 16-avos forem sorteados.
-        </p>
-      </div>
-    )
-  }
-
   const { data: { user } } = await supabase.auth.getUser()
 
   // Carrega dados em paralelo
@@ -98,7 +85,7 @@ export default async function BilhetePremiadoPage() {
           </p>
         ) : (
           <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Monta o teu chaveamento dos sonhos 🏆 — salva automaticamente a cada clique.
+            Monta o teu chaveamento dos sonhos 🏆 — clica em <strong>Alterar Bilhete</strong> para editar e depois <strong>Salvar</strong>.
           </p>
         )}
       </div>
