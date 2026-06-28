@@ -332,12 +332,12 @@ Tela separada de palpites de placar. Após o sorteio dos 16-avos (fim da fase de
 |---|---:|
 | Cada confronto de 16-avos previsto corretamente (= o time previsto avançou) | 1 pt × 16 = até 16 pts |
 | Cada confronto de oitavas previsto corretamente | 2 pts × 8 = até 16 pts |
-| Cada confronto de quartas previsto corretamente | 5 pts × 4 = até 20 pts (na verdade são as semis — vide briefing original; CONFIRMAR) |
+| Cada confronto de quartas previsto corretamente | 5 pts × 4 = até 20 pts |
 | Cada confronto de semis previsto corretamente | 5 pts × 2 = até 10 pts |
 | Confronto da final previsto corretamente | 5 pts |
 | Campeão da Copa previsto corretamente | 10 pts |
 
-> ⚠ **Premissa a confirmar:** o briefing original diz "quartas: 2pts por confronto" e "semis: 5pts por jogo" — vou usar literalmente esses valores. Os números acima refletem o briefing fielmente. Total máximo possível ≈ 16 + 16 + 8 + 10 + 5 + 10 = **65 pts** no Bilhete.
+> ✅ **Confirmado:** valores 1 / 2 / 5 / 5 / 5 + 10 (campeão). Quartas = 4 confrontos (8 times → 4 jogos). Total máximo possível = 16 + 16 + 20 + 10 + 5 + 10 = **77 pts** no Bilhete. Reflete a implementação em `calculate_golden_ticket_points` e `TICKET_POINTS`.
 
 Pontuação parcial é possível: se o usuário previu Brasil campeão e o Brasil cai nas oitavas, ele perde os pontos das fases seguintes que poderiam conter o Brasil mas mantém o que acertou até ali + os outros confrontos seguintes que ele pode acertar.
 
@@ -377,10 +377,10 @@ Pontuação parcial é possível: se o usuário previu Brasil campeão e o Brasi
 | 1 | Login | `/login` | E-mail + senha + "esqueci a senha" |
 | 2 | Cadastro | `/cadastro` | Valida contra `allowed_emails` antes de criar conta |
 | 3 | Esqueci senha | `/recuperar-senha` | Supabase Auth padrão |
-| 4 | Home / Próximos Jogos | `/` | Lista compacta de próximos jogos com call-to-action de palpitar |
+| 4 | Home / Próximos Jogos | `/` | Ranking (pódio + lista) no topo + lista compacta de próximos jogos com call-to-action de palpitar |
 | 5 | Rodada de Grupos | `/grupos/rodada/[n]` | Todos os jogos da rodada n; salva palpites individualmente |
 | 6 | Minhas Apostas | `/minhas-apostas` | Histórico filtrável por fase/rodada com opção de palpitar quando aplicável, abas por rodada de fase de grupos, aba de mata-mata quando disponível e aba de bilhete premiado quando disponível |
-| 7 | Ranking | `/ranking` | Pódio + lista |
+| 7 | Bilhete Premiado | `/bilhete-premiado` | Chaveamento do mata-mata (estilo ge.globo); aba ao lado de Mata-mata. Ranking deixou de ser aba e foi pro topo da Home; `/ranking` redireciona pra `/`. |
 | 8 | Perfil | `/perfil` | Edita foto, nome, senha |
 | 9 | Admin | `/admin` (gated) | Abas: E-mails / Jogos / Tiers / API / Logs |
 

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Trophy } from 'lucide-react'
+import { Ticket } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { UserAvatar } from '@/components/layout/user-avatar'
 import { AdminNavLink } from '@/components/layout/admin-nav-link'
@@ -32,11 +32,17 @@ export function TopNav({ className }: TopNavProps) {
             Apostas
           </Link>
           <Link
-            href="/ranking"
+            href="/mata-mata"
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Mata-mata
+          </Link>
+          <Link
+            href="/bilhete-premiado"
             className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
           >
-            <Trophy className="h-4 w-4" />
-            Ranking
+            <Ticket className="h-4 w-4" />
+            Bilhete Premiado
           </Link>
           <AdminNavLink />
           <UserAvatar />
