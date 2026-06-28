@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { Pencil, Save, X } from 'lucide-react'
 import { BracketSlot } from './bracket-slot'
@@ -11,50 +11,53 @@ import type { GoldenTicketPredictions } from '@/types'
 import type { MatchWithTeams } from '@/types'
 
 // ============================================================
-// Constantes de layout do SVG
+// Layout — chave de DUAS PONTAS (estilo simulador da Copa)
+//
+//   16-avos  Oitavas Quartas Semis   FINAL   Semis Quartas Oitavas 16-avos
+//   (0-7)                            🏆       (8-15)
+//   lado esquerdo  →→→            centro            ←←← lado direito
+//
+// Colunas (0..8): 0-3 = esquerda (r32,r16,qf,sf), 4 = final/campeão,
+//                 5-8 = direita (sf,qf,r16,r32 — espelhado)
 // ============================================================
-const SLOT_W = 148        // largura de cada slot
-const SLOT_H = 32         // altura de cada slot
-const MATCH_GAP = 8       // espaço entre os 2 slots de um confronto
-const COL_GAP = 60        // espaço horizontal entre colunas
-const TOP_MARGIN = 20     // margem superior
-const ROW_GAP_R32 = 10    // espaço vertical entre confrontos R32
+const SLOT_W = 140
+const SLOT_H = 32
+const MATCH_GAP = 8       // espaço entre os 2 times de um confronto
+const COL_GAP = 32        // espaço horizontal entre colunas
+const TOP_MARGIN = 28     // margem superior (espaço pros labels)
+const ROW_GAP_R32 = 12    // espaço vertical entre confrontos de R32
 
-// Número de confrontos por fase
-const MATCHES_PER_PHASE = [16, 8, 4, 2, 1] // R32, R16, QF, SF, Final
-const PHASES = ['r32', 'r16', 'qf', 'sf', 'final'] as const
-type Phase = (typeof PHASES)[number]
-
-// Altura de um confronto (2 slots + gap)
 const MATCH_HEIGHT = SLOT_H * 2 + MATCH_GAP
+const BASE_SPACING = MATCH_HEIGHT + ROW_GAP_R32
 
-// Espaçamento vertical entre confrontos por coluna
-function colSpacing(colIdx: number): number {
-  return (MATCH_HEIGHT + ROW_GAP_R32) * Math.pow(2, colIdx)
+// 8 confrontos de R32 por lado
+const R32_PER_SIDE = 8
+const N_COLS = 9
+const CENTER_COL = 4
+
+type Phase = 'r32' | 'r16' | 'qf' | 'sf' | 'final'
+type Side = 'left' | 'right'
+
+// depth: 0=r32, 1=r16, 2=qf, 3=sf
+function colSpacing(depth: number): number {
+  return BASE_SPACING * Math.pow(2, depth)
 }
-
-// Y central do slot de um confronto em uma coluna
-function matchCenterY(colIdx: number, matchIdx: number): number {
-  const spacing = colSpacing(colIdx)
-  const firstMatchCenter = TOP_MARGIN + MATCH_HEIGHT / 2 + (spacing - MATCH_HEIGHT) / 2
-  return firstMatchCenter + matchIdx * spacing
+function matchCenterY(depth: number, matchIdx: number): number {
+  const spacing = colSpacing(depth)
+  return TOP_MARGIN + spacing / 2 + matchIdx * spacing
 }
-
-// X esquerdo da coluna
 function colX(colIdx: number): number {
   return colIdx * (SLOT_W + COL_GAP)
 }
-
-// Altura total do SVG (baseada na coluna R32 com 16 confrontos)
-function svgHeight(): number {
-  const spacing = colSpacing(0)
-  return TOP_MARGIN * 2 + 16 * spacing
+// X esquerdo do slot, dado depth (0-3) e lado
+function depthColX(depth: number, side: Side): number {
+  return side === 'left' ? colX(depth) : colX(8 - depth)
 }
-
-// Largura total do SVG (5 colunas + campeão)
-const CHAMPION_COL = 5
+function svgHeight(): number {
+  return TOP_MARGIN * 2 + R32_PER_SIDE * colSpacing(0)
+}
 function svgWidth(): number {
-  return CHAMPION_COL * (SLOT_W + COL_GAP) + SLOT_W
+  return (N_COLS - 1) * (SLOT_W + COL_GAP) + SLOT_W
 }
 
 interface TeamInfo {
@@ -83,13 +86,10 @@ export function BracketSVG({
   const [isSaving, setIsSaving] = useState(false)
 
   const isBeforeDeadline = new Date() < TICKET_EDIT_DEADLINE
-  // Slots são clicáveis somente no modo de edição
   const effectiveReadOnly = readOnly || !isEditing
 
   const handleSaveAction = useCallback(
-    async (predictions: GoldenTicketPredictions) => {
-      return await saveGoldenTicket(predictions)
-    },
+    async (predictions: GoldenTicketPredictions) => saveGoldenTicket(predictions),
     [],
   )
 
@@ -117,18 +117,13 @@ export function BracketSVG({
     setIsEditing(false)
   }
 
-  // Helpers para extrair info de time a partir de matchWithTeams
-  function getTeamInfo(
-    match: MatchWithTeams,
-    side: 'home' | 'away',
-  ): TeamInfo | null {
-    const t = side === 'home' ? match.home_team : match.away_team
-    if (!t) return null
-    return { id: t.id, name: t.name, flagUrl: t.flag_url }
+  // ---- Mapa bracket_slot → match ----
+  const matchBySlot = new Map<number, MatchWithTeams>()
+  for (const m of r32Matches) {
+    if (m.bracket_slot != null) matchBySlot.set(m.bracket_slot, m)
   }
 
-  // Resolve info de time a partir do teamId buscando nos r32Matches
-  function resolveTeam(teamId: string | null): TeamInfo | null {
+  function resolveTeam(teamId: string | null | undefined): TeamInfo | null {
     if (!teamId) return null
     for (const m of r32Matches) {
       if (m.home_team?.id === teamId)
@@ -139,14 +134,9 @@ export function BracketSVG({
     return null
   }
 
-  // Resultado real de uma fase
   function getActualResult(phase: Phase): string[] {
-    return actualResults
-      .filter((r) => r.phase === phase)
-      .map((r) => r.advancing_team_id)
+    return actualResults.filter((r) => r.phase === phase).map((r) => r.advancing_team_id)
   }
-
-  // Status de um slot
   function slotStatus(
     phase: Phase,
     predictedTeamId: string | null,
@@ -160,320 +150,323 @@ export function BracketSVG({
 
   const H = svgHeight()
   const W = svgWidth()
-
   const LINE_COLOR = '#E5E7EB'
+
+  // ============================================================
+  // Descritor genérico de um slot (1 time dentro de um confronto)
+  // ============================================================
+  interface SlotDesc {
+    key: string
+    x: number
+    y: number
+    team: TeamInfo | null
+    phase: Phase
+    isSelected: boolean
+    isPlaceholder: boolean
+    onClick?: () => void
+  }
+
+  function buildSideSlots(side: Side): SlotDesc[] {
+    const slots: SlotDesc[] = []
+
+    // ---------- DEPTH 0: R32 (8 confrontos) ----------
+    for (let i = 0; i < R32_PER_SIDE; i++) {
+      const globalSlot = side === 'left' ? i : R32_PER_SIDE + i
+      const match = matchBySlot.get(globalSlot)
+      const cy = matchCenterY(0, i)
+      const x = depthColX(0, side)
+      const winner = match ? predictions.r32[match.id] ?? null : null
+
+      ;(['home', 'away'] as const).forEach((sideTeam) => {
+        const isUpper = sideTeam === 'home'
+        const t = match ? (isUpper ? match.home_team : match.away_team) : null
+        const team: TeamInfo | null = t
+          ? { id: t.id, name: t.name, flagUrl: t.flag_url }
+          : null
+        const y = isUpper ? cy - SLOT_H - MATCH_GAP / 2 : cy + MATCH_GAP / 2
+        const isSelected = !!team?.id && winner === team.id
+        slots.push({
+          key: `r32-${side}-${i}-${sideTeam}`,
+          x,
+          y,
+          team,
+          phase: 'r32',
+          isSelected,
+          isPlaceholder: !team,
+          onClick:
+            team && match && !effectiveReadOnly
+              ? () => dispatch({ type: 'SET_R32', matchId: match.id, teamId: team.id })
+              : undefined,
+        })
+      })
+    }
+
+    // ---------- DEPTHS 1-3: r16 / qf / sf ----------
+    const depthConfig: {
+      depth: number
+      phase: Phase
+      count: number
+      slotBase: number // slot global do 1º confronto desse lado
+      prevPhase: 'r32' | 'r16' | 'qf'
+    }[] = [
+      { depth: 1, phase: 'r16', count: 4, slotBase: side === 'left' ? 0 : 4, prevPhase: 'r32' },
+      { depth: 2, phase: 'qf', count: 2, slotBase: side === 'left' ? 0 : 2, prevPhase: 'r16' },
+      { depth: 3, phase: 'sf', count: 1, slotBase: side === 'left' ? 0 : 1, prevPhase: 'qf' },
+    ]
+
+    for (const cfg of depthConfig) {
+      for (let i = 0; i < cfg.count; i++) {
+        const globalSlot = cfg.slotBase + i
+        const cy = matchCenterY(cfg.depth, i)
+        const x = depthColX(cfg.depth, side)
+        const chosen =
+          cfg.phase === 'r16'
+            ? predictions.r16[globalSlot]
+            : cfg.phase === 'qf'
+              ? predictions.qf[globalSlot]
+              : predictions.sf[globalSlot]
+
+        ;[0, 1].forEach((pair) => {
+          const isUpper = pair === 0
+          const y = isUpper ? cy - SLOT_H - MATCH_GAP / 2 : cy + MATCH_GAP / 2
+
+          // time disponível = vencedor do confronto anterior que alimenta esse slot
+          const feederGlobalSlot = globalSlot * 2 + pair
+          let availableTeamId: string | null = null
+          if (cfg.prevPhase === 'r32') {
+            const fm = matchBySlot.get(feederGlobalSlot)
+            availableTeamId = fm ? predictions.r32[fm.id] ?? null : null
+          } else if (cfg.prevPhase === 'r16') {
+            availableTeamId = predictions.r16[feederGlobalSlot] ?? null
+          } else {
+            availableTeamId = predictions.qf[feederGlobalSlot] ?? null
+          }
+
+          const team = resolveTeam(availableTeamId)
+          const isSelected = !!availableTeamId && chosen === availableTeamId
+
+          slots.push({
+            key: `${cfg.phase}-${side}-${i}-${pair}`,
+            x,
+            y,
+            team,
+            phase: cfg.phase,
+            isSelected,
+            isPlaceholder: !team,
+            onClick:
+              team && !effectiveReadOnly
+                ? () => {
+                    if (cfg.phase === 'r16')
+                      dispatch({ type: 'SET_R16', slot: globalSlot, teamId: team.id })
+                    else if (cfg.phase === 'qf')
+                      dispatch({ type: 'SET_QF', slot: globalSlot, teamId: team.id })
+                    else dispatch({ type: 'SET_SF', slot: globalSlot, teamId: team.id })
+                  }
+                : undefined,
+          })
+        })
+      }
+    }
+
+    return slots
+  }
+
+  // ---------- FINAL (centro): os 2 finalistas ----------
+  function buildFinalSlots(): SlotDesc[] {
+    const cy = H / 2
+    const x = colX(CENTER_COL)
+    const finalist0 = predictions.sf[0] ?? null // esquerda
+    const finalist1 = predictions.sf[1] ?? null // direita
+    const champion = predictions.champion
+
+    return [finalist0, finalist1].map((teamId, idx) => {
+      const isUpper = idx === 0
+      const y = isUpper ? cy - SLOT_H - MATCH_GAP / 2 : cy + MATCH_GAP / 2
+      const team = resolveTeam(teamId)
+      const isSelected = !!teamId && champion === teamId
+      return {
+        key: `final-${idx}`,
+        x,
+        y,
+        team,
+        phase: 'final' as Phase,
+        isSelected,
+        isPlaceholder: !team,
+        onClick:
+          team && !effectiveReadOnly
+            ? () => dispatch({ type: 'SET_CHAMPION', teamId: team.id })
+            : undefined,
+      }
+    })
+  }
+
+  const allSlots = [...buildSideSlots('left'), ...buildSideSlots('right'), ...buildFinalSlots()]
+
+  // ============================================================
+  // Linhas de conexão entre confrontos (por lado e profundidade)
+  // ============================================================
+  function buildConnectors(): ReactNode[] {
+    const lines: ReactNode[] = []
+    const sides: Side[] = ['left', 'right']
+
+    for (const side of sides) {
+      // depth 0→1, 1→2, 2→3
+      for (let depth = 0; depth < 3; depth++) {
+        const childCount = R32_PER_SIDE / Math.pow(2, depth)
+        for (let i = 0; i < childCount; i++) {
+          const cyc = matchCenterY(depth, i)
+          let xChildEdge: number
+          let xParentEdge: number
+          if (side === 'left') {
+            xChildEdge = depthColX(depth, side) + SLOT_W
+            xParentEdge = depthColX(depth + 1, side)
+          } else {
+            xChildEdge = depthColX(depth, side)
+            xParentEdge = depthColX(depth + 1, side) + SLOT_W
+          }
+          const midX = (xChildEdge + xParentEdge) / 2
+
+          lines.push(
+            <polyline
+              key={`ln-${side}-${depth}-${i}`}
+              points={`${xChildEdge},${cyc} ${midX},${cyc}`}
+              stroke={LINE_COLOR}
+              strokeWidth={1.5}
+              fill="none"
+            />,
+          )
+
+          if (i % 2 === 0) {
+            const cyc2 = matchCenterY(depth, i + 1)
+            const cyp = matchCenterY(depth + 1, Math.floor(i / 2))
+            lines.push(
+              <polyline
+                key={`lv-${side}-${depth}-${i}`}
+                points={`${midX},${cyc} ${midX},${cyc2}`}
+                stroke={LINE_COLOR}
+                strokeWidth={1.5}
+                fill="none"
+              />,
+              <polyline
+                key={`lp-${side}-${depth}-${i}`}
+                points={`${midX},${cyp} ${xParentEdge},${cyp}`}
+                stroke={LINE_COLOR}
+                strokeWidth={1.5}
+                fill="none"
+              />,
+            )
+          }
+        }
+      }
+
+      // SF → Final (centro)
+      const sfCy = matchCenterY(3, 0)
+      const finalCy = side === 'left' ? H / 2 - SLOT_H / 2 - MATCH_GAP / 2 : H / 2 + SLOT_H / 2 + MATCH_GAP / 2
+      let xSfEdge: number
+      let xFinalEdge: number
+      if (side === 'left') {
+        xSfEdge = depthColX(3, side) + SLOT_W
+        xFinalEdge = colX(CENTER_COL)
+      } else {
+        xSfEdge = depthColX(3, side)
+        xFinalEdge = colX(CENTER_COL) + SLOT_W
+      }
+      const midX = (xSfEdge + xFinalEdge) / 2
+      lines.push(
+        <polyline
+          key={`sf-final-${side}`}
+          points={`${xSfEdge},${sfCy} ${midX},${sfCy} ${midX},${finalCy} ${xFinalEdge},${finalCy}`}
+          stroke={LINE_COLOR}
+          strokeWidth={1.5}
+          fill="none"
+        />,
+      )
+    }
+
+    return lines
+  }
+
+  // ---------- Campeão (troféu acima da final) ----------
+  const championTeam = resolveTeam(predictions.champion)
+  const championStatus = slotStatus('final', predictions.champion)
+
+  // Labels das colunas
+  const COL_LABELS: { col: number; label: string }[] = [
+    { col: 0, label: '16-avos' },
+    { col: 1, label: 'Oitavas' },
+    { col: 2, label: 'Quartas' },
+    { col: 3, label: 'Semis' },
+    { col: 4, label: 'Final' },
+    { col: 5, label: 'Semis' },
+    { col: 6, label: 'Quartas' },
+    { col: 7, label: 'Oitavas' },
+    { col: 8, label: '16-avos' },
+  ]
 
   return (
     <div>
       <div className="overflow-x-auto pb-4">
         <div style={{ minWidth: W }}>
-          <svg
-            width={W}
-            height={H}
-            viewBox={`0 0 ${W} ${H}`}
-            style={{ display: 'block' }}
-          >
-            {/* ============================================================
-                LINHAS DE CONEXÃO (desenhadas antes dos slots, ficam atrás)
-            ============================================================ */}
-            {PHASES.slice(0, 4).map((phase, colIdx) => {
-              const nextCol = colIdx + 1
-              const matchCount = MATCHES_PER_PHASE[colIdx]
+          <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+            {/* Linhas de conexão (atrás) */}
+            {buildConnectors()}
 
-              return Array.from({ length: matchCount }, (_, matchIdx) => {
-                const cy = matchCenterY(colIdx, matchIdx)
-                const x1 = colX(colIdx) + SLOT_W
-                const x2 = colX(nextCol)
-                const parentMatchIdx = Math.floor(matchIdx / 2)
-                const parentCY = matchCenterY(nextCol, parentMatchIdx)
-                const midX = x1 + (x2 - x1) / 2
+            {/* Slots (times) */}
+            {allSlots.map((s) => (
+              <foreignObject key={s.key} x={s.x} y={s.y} width={SLOT_W} height={SLOT_H}>
+                <BracketSlot
+                  teamId={s.team?.id}
+                  teamName={s.team?.name}
+                  flagUrl={s.team?.flagUrl}
+                  status={
+                    s.isPlaceholder
+                      ? 'placeholder'
+                      : s.isSelected
+                        ? slotStatus(s.phase, s.team?.id ?? null)
+                        : 'empty'
+                  }
+                  isPlaceholder={s.isPlaceholder}
+                  readOnly={effectiveReadOnly}
+                  onClick={s.onClick}
+                />
+              </foreignObject>
+            ))}
 
-                return (
-                  <g key={`line-${phase}-${matchIdx}`}>
-                    <polyline
-                      points={`${x1},${cy} ${midX},${cy}`}
-                      stroke={LINE_COLOR}
-                      strokeWidth={1.5}
-                      fill="none"
-                    />
-                    {matchIdx % 2 === 0 && (
-                      <>
-                        <polyline
-                          points={`${midX},${cy} ${midX},${matchCenterY(colIdx, matchIdx + 1)}`}
-                          stroke={LINE_COLOR}
-                          strokeWidth={1.5}
-                          fill="none"
-                        />
-                        <polyline
-                          points={`${midX},${parentCY} ${x2},${parentCY}`}
-                          stroke={LINE_COLOR}
-                          strokeWidth={1.5}
-                          fill="none"
-                        />
-                      </>
-                    )}
-                  </g>
-                )
-              })
-            })}
+            {/* Campeão — troféu + time, centro acima da final */}
+            <foreignObject x={colX(CENTER_COL)} y={H / 2 - 118} width={SLOT_W} height={64}>
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-2xl">🏆</span>
+                <BracketSlot
+                  teamId={championTeam?.id}
+                  teamName={championTeam?.name ?? 'Campeão'}
+                  flagUrl={championTeam?.flagUrl}
+                  status={predictions.champion ? championStatus : 'placeholder'}
+                  isPlaceholder={!predictions.champion}
+                  readOnly
+                />
+              </div>
+            </foreignObject>
 
-            {/* ============================================================
-                SLOTS — R32 (col 0): cada partida gera 2 slots (home + away)
-                FIX: flatMap para criar home+away do MESMO jogo no mesmo par visual
-            ============================================================ */}
-            {r32Matches
-              .slice()
-              .sort((a, b) => (a.bracket_slot ?? 99) - (b.bracket_slot ?? 99))
-              .flatMap((match, matchIdx) => {
-                const cy = matchCenterY(0, matchIdx)
-                const x = colX(0)
-                const winner = predictions.r32[match.id] ?? null
-
-                return (['home', 'away'] as const).map((side) => {
-                  const isUpper = side === 'home'
-                  const team = getTeamInfo(match, side)
-                  const y = isUpper
-                    ? cy - SLOT_H - MATCH_GAP / 2
-                    : cy + MATCH_GAP / 2
-                  const isSelected = !!team?.id && winner === team.id
-
-                  return (
-                    <foreignObject
-                      key={`r32-${match.id}-${side}`}
-                      x={x}
-                      y={y}
-                      width={SLOT_W}
-                      height={SLOT_H}
-                    >
-                      <BracketSlot
-                        teamId={team?.id}
-                        teamName={team?.name}
-                        flagUrl={team?.flagUrl}
-                        status={isSelected ? slotStatus('r32', team?.id ?? null) : 'empty'}
-                        readOnly={effectiveReadOnly}
-                        onClick={
-                          team && !effectiveReadOnly
-                            ? () => dispatch({ type: 'SET_R32', matchId: match.id, teamId: team.id })
-                            : undefined
-                        }
-                      />
-                    </foreignObject>
-                  )
-                })
-              })}
-
-            {/* ============================================================
-                SLOTS — R16 (col 1): vencedores dos pares de R32
-            ============================================================ */}
-            {Array.from({ length: 8 }, (_, r16Slot) => {
-              const cy = matchCenterY(1, r16Slot)
-              const x = colX(1)
-
-              const r32Match1 = r32Matches.find((m) => m.bracket_slot === r16Slot * 2)
-              const r32Match2 = r32Matches.find((m) => m.bracket_slot === r16Slot * 2 + 1)
-              const winner1TeamId = r32Match1 ? predictions.r32[r32Match1.id] : null
-              const winner2TeamId = r32Match2 ? predictions.r32[r32Match2.id] : null
-              const r16Winner = predictions.r16[r16Slot] ?? null
-
-              return [0, 1].map((slotPair) => {
-                const isUpper = slotPair === 0
-                const y = isUpper
-                  ? cy - SLOT_H - MATCH_GAP / 2
-                  : cy + MATCH_GAP / 2
-                const availableTeamId = isUpper ? winner1TeamId : winner2TeamId
-                const resolvedTeam = resolveTeam(availableTeamId)
-                const isSelected = r16Winner === availableTeamId && !!availableTeamId
-
-                return (
-                  <foreignObject
-                    key={`r16-${r16Slot}-${slotPair}`}
-                    x={x}
-                    y={y}
-                    width={SLOT_W}
-                    height={SLOT_H}
-                  >
-                    <BracketSlot
-                      teamId={resolvedTeam?.id}
-                      teamName={resolvedTeam?.name}
-                      flagUrl={resolvedTeam?.flagUrl}
-                      status={isSelected ? slotStatus('r16', resolvedTeam?.id ?? null) : resolvedTeam ? 'empty' : 'placeholder'}
-                      isPlaceholder={!resolvedTeam}
-                      readOnly={effectiveReadOnly}
-                      onClick={
-                        resolvedTeam && !effectiveReadOnly
-                          ? () => dispatch({ type: 'SET_R16', slot: r16Slot, teamId: resolvedTeam.id })
-                          : undefined
-                      }
-                    />
-                  </foreignObject>
-                )
-              })
-            })}
-
-            {/* ============================================================
-                SLOTS — QF (col 2)
-            ============================================================ */}
-            {Array.from({ length: 4 }, (_, qfSlot) => {
-              const cy = matchCenterY(2, qfSlot)
-              const x = colX(2)
-              const r16Slot1 = qfSlot * 2
-              const r16Slot2 = qfSlot * 2 + 1
-              const winner1 = predictions.r16[r16Slot1] ?? null
-              const winner2 = predictions.r16[r16Slot2] ?? null
-              const qfWinner = predictions.qf[qfSlot] ?? null
-
-              return [0, 1].map((slotPair) => {
-                const isUpper = slotPair === 0
-                const y = isUpper ? cy - SLOT_H - MATCH_GAP / 2 : cy + MATCH_GAP / 2
-                const availableTeamId = isUpper ? winner1 : winner2
-                const resolvedTeam = resolveTeam(availableTeamId)
-                const isSelected = qfWinner === availableTeamId && !!availableTeamId
-
-                return (
-                  <foreignObject key={`qf-${qfSlot}-${slotPair}`} x={x} y={y} width={SLOT_W} height={SLOT_H}>
-                    <BracketSlot
-                      teamId={resolvedTeam?.id}
-                      teamName={resolvedTeam?.name}
-                      flagUrl={resolvedTeam?.flagUrl}
-                      status={isSelected ? slotStatus('qf', resolvedTeam?.id ?? null) : resolvedTeam ? 'empty' : 'placeholder'}
-                      isPlaceholder={!resolvedTeam}
-                      readOnly={effectiveReadOnly}
-                      onClick={
-                        resolvedTeam && !effectiveReadOnly
-                          ? () => dispatch({ type: 'SET_QF', slot: qfSlot, teamId: resolvedTeam.id })
-                          : undefined
-                      }
-                    />
-                  </foreignObject>
-                )
-              })
-            })}
-
-            {/* ============================================================
-                SLOTS — SF (col 3)
-            ============================================================ */}
-            {Array.from({ length: 2 }, (_, sfSlot) => {
-              const cy = matchCenterY(3, sfSlot)
-              const x = colX(3)
-              const qfSlot1 = sfSlot * 2
-              const qfSlot2 = sfSlot * 2 + 1
-              const winner1 = predictions.qf[qfSlot1] ?? null
-              const winner2 = predictions.qf[qfSlot2] ?? null
-              const sfWinner = predictions.sf[sfSlot] ?? null
-
-              return [0, 1].map((slotPair) => {
-                const isUpper = slotPair === 0
-                const y = isUpper ? cy - SLOT_H - MATCH_GAP / 2 : cy + MATCH_GAP / 2
-                const availableTeamId = isUpper ? winner1 : winner2
-                const resolvedTeam = resolveTeam(availableTeamId)
-                const isSelected = sfWinner === availableTeamId && !!availableTeamId
-
-                return (
-                  <foreignObject key={`sf-${sfSlot}-${slotPair}`} x={x} y={y} width={SLOT_W} height={SLOT_H}>
-                    <BracketSlot
-                      teamId={resolvedTeam?.id}
-                      teamName={resolvedTeam?.name}
-                      flagUrl={resolvedTeam?.flagUrl}
-                      status={isSelected ? slotStatus('sf', resolvedTeam?.id ?? null) : resolvedTeam ? 'empty' : 'placeholder'}
-                      isPlaceholder={!resolvedTeam}
-                      readOnly={effectiveReadOnly}
-                      onClick={
-                        resolvedTeam && !effectiveReadOnly
-                          ? () => dispatch({ type: 'SET_SF', slot: sfSlot, teamId: resolvedTeam.id })
-                          : undefined
-                      }
-                    />
-                  </foreignObject>
-                )
-              })
-            })}
-
-            {/* ============================================================
-                SLOTS — Final (col 4): os dois finalistas
-            ============================================================ */}
-            {(() => {
-              const cy = matchCenterY(4, 0)
-              const x = colX(4)
-              const finalist1 = predictions.sf[0] ?? null
-              const finalist2 = predictions.sf[1] ?? null
-              const champion = predictions.champion
-
-              return [finalist1, finalist2].map((teamId, idx) => {
-                const isUpper = idx === 0
-                const y = isUpper ? cy - SLOT_H - MATCH_GAP / 2 : cy + MATCH_GAP / 2
-                const resolvedTeam = resolveTeam(teamId)
-                const isSelected = champion === teamId && !!teamId
-
-                return (
-                  <foreignObject key={`final-${idx}`} x={x} y={y} width={SLOT_W} height={SLOT_H}>
-                    <BracketSlot
-                      teamId={resolvedTeam?.id}
-                      teamName={resolvedTeam?.name}
-                      flagUrl={resolvedTeam?.flagUrl}
-                      status={isSelected ? slotStatus('final', champion) : resolvedTeam ? 'empty' : 'placeholder'}
-                      isPlaceholder={!resolvedTeam}
-                      readOnly={effectiveReadOnly}
-                      onClick={
-                        resolvedTeam && !effectiveReadOnly
-                          ? () => dispatch({ type: 'SET_CHAMPION', teamId: resolvedTeam.id })
-                          : undefined
-                      }
-                    />
-                  </foreignObject>
-                )
-              })
-            })()}
-
-            {/* ============================================================
-                CAMPEÃO (col 5): troféu + time campeão
-            ============================================================ */}
-            {(() => {
-              const cy = H / 2
-              const x = colX(CHAMPION_COL)
-              const champion = predictions.champion
-              const resolvedTeam = resolveTeam(champion)
-              const championStatus = slotStatus('final', champion)
-
-              return (
-                <foreignObject x={x} y={cy - 40} width={SLOT_W} height={80}>
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-2xl">🏆</span>
-                    <BracketSlot
-                      teamId={resolvedTeam?.id}
-                      teamName={resolvedTeam?.name ?? 'Campeão'}
-                      flagUrl={resolvedTeam?.flagUrl}
-                      status={champion ? championStatus : 'placeholder'}
-                      isPlaceholder={!champion}
-                      readOnly
-                    />
-                  </div>
-                </foreignObject>
-              )
-            })()}
-
-            {/* Labels das colunas */}
-            {['16-avos', 'Oitavas', 'Quartas', 'Semis', 'Final', '🏆'].map(
-              (label, idx) => (
-                <text
-                  key={label}
-                  x={colX(idx) + SLOT_W / 2}
-                  y={TOP_MARGIN / 2}
-                  textAnchor="middle"
-                  fontSize={10}
-                  fill="#9CA3AF"
-                  fontFamily="Inter, sans-serif"
-                >
-                  {label}
-                </text>
-              ),
-            )}
+            {/* Labels */}
+            {COL_LABELS.map((l) => (
+              <text
+                key={`label-${l.col}`}
+                x={colX(l.col) + SLOT_W / 2}
+                y={TOP_MARGIN / 2}
+                textAnchor="middle"
+                fontSize={11}
+                fontWeight={600}
+                fill="#9CA3AF"
+                fontFamily="Inter, sans-serif"
+              >
+                {l.label}
+              </text>
+            ))}
           </svg>
         </div>
       </div>
 
-      {/* ============================================================
-          BOTÕES ALTERAR / SALVAR
-      ============================================================ */}
+      {/* Botões Alterar / Salvar */}
       <div className="flex justify-center mt-4">
         {isBeforeDeadline && !readOnly ? (
           !isEditing ? (
