@@ -179,6 +179,7 @@ export async function adminUpdateMatch(
     away_score?: number | null
     status?: string
     kickoff_at?: string
+    advancing_team_id?: string | null
   },
   reason: string,
 ): Promise<AdminActionResult & { recalculated?: number }> {
@@ -232,6 +233,8 @@ export async function adminUpdateMatch(
     revalidatePath('/')
     revalidatePath('/admin')
     revalidatePath('/minhas-apostas')
+    revalidatePath('/mata-mata')
+    revalidatePath('/bilhete-premiado')
 
     return { success: true, message: TOAST.adminMatchUpdated, recalculated }
   } catch (e) {

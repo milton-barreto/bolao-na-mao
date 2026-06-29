@@ -34,13 +34,17 @@ export function EditMatchDialog({
   const [homeScore, setHomeScore] = useState<string>('')
   const [awayScore, setAwayScore] = useState<string>('')
   const [status, setStatus] = useState<string>('')
+  const [advancingTeamId, setAdvancingTeamId] = useState<string>('')
   const [reason, setReason] = useState('')
+
+  const isKnockout = !!match && match.phase !== 'group'
 
   // Sync state quando match muda
   const resetFields = (m: MatchWithTeams | null) => {
     setHomeScore(m?.home_score?.toString() ?? '')
     setAwayScore(m?.away_score?.toString() ?? '')
     setStatus(m?.status ?? 'scheduled')
+    setAdvancingTeamId(m?.advancing_team_id ?? '')
     setReason('')
   }
 
@@ -59,6 +63,9 @@ export function EditMatchDialog({
       const updates: Record<string, unknown> = { status }
       if (homeScore !== '') updates.home_score = parseInt(homeScore, 10)
       if (awayScore !== '') updates.away_score = parseInt(awayScore, 10)
+      // Mata-mata: registra quem avançou (fonte da verdade para o 1pt base
+      // quando o jogo vai à prorrogação/pênaltis). '' = não definir / limpar.
+      if (isKnockout) updates.advancing_team_id = advancingTeamId || null
 
       const res = await adminUpdateMatch(match.id, updates as Parameters<typeof adminUpdateMatch>[1], reason)
 
@@ -137,6 +144,26 @@ export function EditMatchDialog({
               ))}
             </select>
           </div>
+
+          {/* Quem avançou (somente mata-mata) */}
+          {isKnockout && (
+            <div>
+              <Label className="text-xs mb-1 block">Quem avançou</Label>
+              <select
+                className="w-full border border-[var(--border)] rounded-md px-3 py-2 text-sm bg-white"
+                value={advancingTeamId}
+                onChange={(e) => setAdvancingTeamId(e.target.value)}
+              >
+                <option value="">— não definir —</option>
+                <option value={match.home_team_id ?? ''}>{homeName}</option>
+                <option value={match.away_team_id ?? ''}>{awayName}</option>
+              </select>
+              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                Defina o time que passou de fase (vale o 1pt base de quem acertou,
+                mesmo em prorrogação ou pênaltis).
+              </p>
+            </div>
+          )}
 
           {/* Justificativa */}
           <div>
