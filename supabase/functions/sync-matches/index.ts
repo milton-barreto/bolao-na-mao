@@ -60,6 +60,18 @@ function mapGroup(group: string | null): string | null {
   return m ? m[1] : null
 }
 
+// Time que avançou no mata-mata, a partir do vencedor reportado pela API
+// (score.winner considera prorrogação e pênaltis). null em empate/DRAW.
+function advancingFromScore(
+  winner: string | null | undefined,
+  homeTla: string,
+  awayTla: string,
+): string | null {
+  if (winner === 'HOME_TEAM') return homeTla
+  if (winner === 'AWAY_TEAM') return awayTla
+  return null
+}
+
 interface SyncResult {
   synced: number
   skipped: number
@@ -119,16 +131,18 @@ Deno.serve(async () => {
     )
   }
 
-  // 3) Buscar manually_edited dos jogos existentes + IDs de times válidos
+  // 3) Buscar estado dos jogos existentes (manually_edited + fase local)
+  //    + IDs de times válidos
   const [existingRes, teamsRes] = await Promise.all([
-    supabase.from('matches').select('external_id, manually_edited'),
+    supabase.from('matches').select('external_id, manually_edited, phase'),
     supabase.from('teams').select('id'),
   ])
 
-  const editedSet = new Set(
-    (existingRes.data ?? [])
-      .filter((m) => m.manually_edited === true)
-      .map((m) => m.external_id),
+  const existingMap = new Map(
+    (existingRes.data ?? []).map((m) => [
+      m.external_id,
+      { edited: m.manually_edited === true, phase: m.phase as string | null },
+    ]),
   )
 
   const validTeamIds = new Set((teamsRes.data ?? []).map((t) => t.id))
@@ -140,7 +154,10 @@ Deno.serve(async () => {
       const homeTeam = (m as { homeTeam?: { tla?: string } }).homeTeam
       const awayTeam = (m as { awayTeam?: { tla?: string } }).awayTeam
       const score = (m as {
-        score?: { fullTime?: { home: number | null; away: number | null } }
+        score?: {
+          winner?: string | null
+          fullTime?: { home: number | null; away: number | null }
+        }
       }).score
 
       // Sem TLA dos dois times (jogo TBD do mata-mata) → pula
@@ -155,11 +172,42 @@ Deno.serve(async () => {
         continue
       }
 
-      const isEdited = editedSet.has(extId)
+      const existing = existingMap.get(extId)
+      const apiStatus = mapStatus((m as { status: string }).status)
+      const apiPhase = mapPhase((m as { stage: string }).stage)
+      const now = new Date().toISOString()
 
-      // Jogo editado manualmente → pula completamente (fase, placar e status protegidos)
-      if (isEdited) {
-        result.skipped++
+      // Jogo editado manualmente: preserva os campos estruturais corrigidos
+      // (times, fase, kickoff, bracket) mas ainda atualiza o RESULTADO vindo
+      // da API. Só avança o estado (scheduled → live → finished); nunca
+      // reverte status nem apaga placar já registrado.
+      if (existing?.edited) {
+        if (apiStatus !== 'finished' && apiStatus !== 'live') {
+          result.skipped++
+          continue
+        }
+
+        const update: Record<string, unknown> = {
+          status: apiStatus,
+          last_synced_at: now,
+        }
+        if (score?.fullTime?.home != null) update.home_score = score.fullTime.home
+        if (score?.fullTime?.away != null) update.away_score = score.fullTime.away
+
+        // Mata-mata finalizado: registra quem avançou (fase local é a fonte
+        // da verdade, já que a fase da API pode ter sido corrigida à mão).
+        if (apiStatus === 'finished' && existing.phase && existing.phase !== 'group') {
+          const adv = advancingFromScore(score?.winner, homeTeam.tla, awayTeam.tla)
+          if (adv) update.advancing_team_id = adv
+        }
+
+        const { error } = await supabase
+          .from('matches')
+          .update(update)
+          .eq('external_id', extId)
+
+        if (error) result.errors.push(`${extId}: ${error.message}`)
+        else result.synced++
         continue
       }
 
@@ -167,14 +215,20 @@ Deno.serve(async () => {
         external_id: extId,
         home_team_id: homeTeam.tla,
         away_team_id: awayTeam.tla,
-        phase: mapPhase((m as { stage: string }).stage),
+        phase: apiPhase,
         group_name: mapGroup((m as { group: string | null }).group),
         round_number: (m as { matchday: number | null }).matchday ?? null,
         kickoff_at: (m as { utcDate: string }).utcDate,
-        status: mapStatus((m as { status: string }).status),
+        status: apiStatus,
         home_score: score?.fullTime?.home ?? null,
         away_score: score?.fullTime?.away ?? null,
-        last_synced_at: new Date().toISOString(),
+        last_synced_at: now,
+      }
+
+      // Mata-mata finalizado: registra quem avançou também no fluxo normal.
+      if (apiStatus === 'finished' && apiPhase !== 'group') {
+        const adv = advancingFromScore(score?.winner, homeTeam.tla, awayTeam.tla)
+        if (adv) base.advancing_team_id = adv
       }
 
       const { error } = await supabase
