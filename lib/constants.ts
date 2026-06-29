@@ -63,8 +63,8 @@ export function isKnockoutPhase(state: TournamentState): boolean {
   return state !== 'group'
 }
 
-// Deadline para preencher/alterar o bilhete: 29/06/2026 às 03:00 (Fortaleza = UTC-3 = 06:00 UTC)
-export const TICKET_EDIT_DEADLINE = new Date('2026-06-29T06:00:00.000Z')
+// Deadline para preencher/alterar o bilhete: 29/06/2026 às 15:00 (Fortaleza = UTC-3 = 18:00 UTC)
+export const TICKET_EDIT_DEADLINE = new Date('2026-06-29T18:00:00.000Z')
 
 export function isTicketEditable(_state: TournamentState): boolean {
   return new Date() < TICKET_EDIT_DEADLINE
