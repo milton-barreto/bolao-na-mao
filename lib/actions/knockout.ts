@@ -25,8 +25,8 @@ export async function getKnockoutMatches(phase?: string): Promise<MatchWithTeams
       advancing_team:teams!matches_advancing_team_id_fkey(*)
     `)
     .not('phase', 'eq', 'group')
-    .order('bracket_slot', { ascending: true, nullsFirst: false })
     .order('kickoff_at', { ascending: true })
+    .order('bracket_slot', { ascending: true, nullsFirst: false })
 
   if (phase) {
     query = query.eq('phase', phase)
