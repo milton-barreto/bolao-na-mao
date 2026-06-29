@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { BracketSVG } from '@/components/bracket/bracket-svg'
 import { getTournamentState, getGoldenTicket, getGoldenTicketPoints } from '@/lib/actions/golden-ticket'
 import { getKnockoutMatches } from '@/lib/actions/knockout'
-import { isTicketEditable, TICKET_EDIT_DEADLINE } from '@/lib/constants'
+import { getTicketEditDeadline } from '@/lib/constants'
 import { TICKET_POINTS, TICKET_CHAMPION_POINTS } from '@/lib/constants'
 import { formatKickoff } from '@/lib/datetime'
 import type { GoldenTicketPredictions, MatchWithTeams } from '@/types'
@@ -28,11 +28,17 @@ export default async function BilhetePremiadoPage() {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Carrega dados em paralelo
-  const [r32Matches, ticket, ticketPoints] = await Promise.all([
+  const [r32Matches, ticket, ticketPoints, profile] = await Promise.all([
     getKnockoutMatches('r32'),
     user ? getGoldenTicket() : null,
     user ? getGoldenTicketPoints() : 0,
+    user
+      ? supabase.from('profiles').select('name').eq('id', user.id).maybeSingle()
+      : null,
   ])
+
+  // Deadline pode ser estendido para usuários específicos (ex.: Jovito)
+  const editDeadline = getTicketEditDeadline(profile?.data?.name)
 
   const predictions: GoldenTicketPredictions = (ticket?.predictions as GoldenTicketPredictions) ?? {
     r32: {},
@@ -42,9 +48,9 @@ export default async function BilhetePremiadoPage() {
     champion: null,
   }
 
-  const isLocked = !tournamentState || !isTicketEditable(tournamentState) || !!ticket?.locked_at
+  const isLocked = !tournamentState || new Date() >= editDeadline || !!ticket?.locked_at
   const lockedAt = ticket?.locked_at
-  const deadlineLabel = formatKickoff(TICKET_EDIT_DEADLINE)
+  const deadlineLabel = formatKickoff(editDeadline)
   const pointsPct = Math.min(100, Math.round((ticketPoints / MAX_TICKET_POINTS) * 100))
   const pointsLabel = Number.isInteger(ticketPoints) ? `${ticketPoints}` : ticketPoints.toFixed(1)
 
@@ -172,6 +178,7 @@ export default async function BilhetePremiadoPage() {
           r32Matches={r32Matches as MatchWithTeams[]}
           initial={predictions}
           readOnly={isLocked}
+          editDeadline={editDeadline}
           actualResults={actualResults}
         />
       )}
