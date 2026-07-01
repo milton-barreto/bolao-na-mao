@@ -107,8 +107,11 @@ export function KnockoutMatchCard({
             <Badge variant="warning" className="text-xs whitespace-nowrap">AO VIVO 🔴</Badge>
           )}
           {match.home_score !== null && match.away_score !== null && (
-            <span className="text-lg font-bold font-display">
-              {match.home_score}–{match.away_score}
+            <span className="flex items-baseline gap-1">
+              <span className="text-lg font-bold font-display">
+                {match.home_score}–{match.away_score}
+              </span>
+              <span className="text-[10px] text-[var(--text-secondary)]">90&apos;</span>
             </span>
           )}
         </div>
@@ -126,6 +129,13 @@ export function KnockoutMatchCard({
       <p className="text-xs text-center text-[var(--text-secondary)]">
         {formatKickoff(match.kickoff_at)}
       </p>
+
+      {/* Quem passou de fase (placar acima é só o tempo regulamentar) */}
+      {match.status === 'finished' && match.advancing_team && (
+        <p className="text-xs text-center font-semibold text-success">
+          ✅ {match.advancing_team.name} passou de fase
+        </p>
+      )}
 
       {/* Inputs de placar ou leitura */}
       {isLocked ? (
@@ -199,6 +209,7 @@ export function KnockoutMatchCard({
               awayTier={awayTier}
               predictedHome={homeScore as number}
               predictedAway={awayScore as number}
+              isKnockout
             />
           )}
 

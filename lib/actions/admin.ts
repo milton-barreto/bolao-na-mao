@@ -37,6 +37,42 @@ async function getAdminId(supabase: SupabaseServerClient): Promise<string> {
 }
 
 // =============================================================
+// FOOTBALL-DATA.ORG — placar do tempo regulamentar
+// =============================================================
+const FOOTBALL_API_BASE = 'https://api.football-data.org/v4'
+
+interface FootballApiScore {
+  winner?: string | null
+  duration?: string | null
+  fullTime?: { home: number | null; away: number | null }
+  regularTime?: { home: number | null; away: number | null } | null
+}
+
+// Placar do TEMPO REGULAMENTAR (90' + acréscimos), nunca prorrogação/pênaltis.
+// Mata-mata: usa score.regularTime; se decidido no tempo normal (REGULAR), o
+// fullTime já é o placar dos 90'. Em prorrogação/pênaltis sem regularTime
+// disponível retorna null/null (indeterminado). Grupos: fullTime == 90'.
+function regularTimeFromScore(
+  score: FootballApiScore | undefined,
+  isKnockout: boolean,
+): { home: number | null; away: number | null } {
+  const ft = score?.fullTime
+  const rt = score?.regularTime
+
+  if (isKnockout) {
+    if (rt && rt.home != null && rt.away != null) {
+      return { home: rt.home, away: rt.away }
+    }
+    if (score?.duration === 'REGULAR' && ft) {
+      return { home: ft.home ?? null, away: ft.away ?? null }
+    }
+    return { home: null, away: null }
+  }
+
+  return { home: ft?.home ?? null, away: ft?.away ?? null }
+}
+
+// =============================================================
 // ALLOWLIST DE E-MAILS
 // =============================================================
 
@@ -255,7 +291,7 @@ export async function adminForceMatchStatus(
 
     const { data: before } = await supabase
       .from('matches')
-      .select('status, external_id')
+      .select('status, external_id, phase, home_team_id, away_team_id')
       .eq('id', matchId)
       .single()
 
@@ -273,29 +309,39 @@ export async function adminForceMatchStatus(
         manually_edited: boolean
         home_score?: number
         away_score?: number
+        advancing_team_id?: string
       }
       const update: MatchStatusUpdate = { status, manually_edited: true }
+      const isKnockout = !!before?.phase && before.phase !== 'group'
 
-      // Ao finalizar: busca o placar na football-data.org
+      // Ao finalizar: busca o placar do TEMPO REGULAMENTAR na football-data.org
       if (status === 'finished' && before?.external_id) {
         const apiToken = process.env.FOOTBALL_DATA_TOKEN
         if (apiToken) {
           try {
             const res = await fetch(
-              `https://api.football-data.org/v4/matches/${before.external_id}`,
+              `${FOOTBALL_API_BASE}/matches/${before.external_id}`,
               {
                 headers: { 'X-Auth-Token': apiToken },
                 signal: AbortSignal.timeout(5000),
               },
             )
             if (res.ok) {
-              const json = await res.json() as {
-                score?: { fullTime?: { home: number | null; away: number | null } }
+              const json = await res.json() as { score?: FootballApiScore }
+              const rt = regularTimeFromScore(json.score, isKnockout)
+              if (rt.home != null && rt.away != null) {
+                update.home_score = rt.home
+                update.away_score = rt.away
               }
-              const ft = json.score?.fullTime
-              if (ft?.home != null && ft?.away != null) {
-                update.home_score = ft.home
-                update.away_score = ft.away
+              // Mata-mata: registra quem avançou (vencedor real, considera
+              // prorrogação/pênaltis) para valer o ponto do avanço.
+              if (isKnockout) {
+                const winner = json.score?.winner
+                if (winner === 'HOME_TEAM' && before.home_team_id) {
+                  update.advancing_team_id = before.home_team_id
+                } else if (winner === 'AWAY_TEAM' && before.away_team_id) {
+                  update.advancing_team_id = before.away_team_id
+                }
               }
             }
           } catch {
@@ -502,6 +548,188 @@ export async function adminRecalcAllBets(): Promise<AdminActionResult & { count?
     revalidatePath('/minhas-apostas')
 
     return { success: true, message: TOAST.adminRecalcDone, count: count ?? 0 }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : TOAST.genericError }
+  }
+}
+
+// =============================================================
+// BACKFILL: placar do tempo regulamentar no mata-mata
+// Rebusca score.regularTime da football-data.org para todos os jogos
+// de mata-mata já finalizados, corrige home_score/away_score (90'),
+// registra quem avançou (vencedor real) e recalcula os pontos.
+// Preserva jogos manually_edited e reporta os que precisam de ajuste
+// manual (prorrogação/pênaltis sem regularTime disponível na API).
+// =============================================================
+
+export interface KnockoutBackfillMatch {
+  match_id: string
+  label: string
+  reason?: string
+}
+
+export interface KnockoutBackfillResult {
+  corrected: KnockoutBackfillMatch[]
+  needsManual: KnockoutBackfillMatch[]
+  skippedEdited: KnockoutBackfillMatch[]
+  errors: string[]
+}
+
+interface BackfillMatchRow {
+  id: string
+  external_id: string | null
+  phase: string | null
+  manually_edited: boolean | null
+  home_team_id: string | null
+  away_team_id: string | null
+  home_score: number | null
+  away_score: number | null
+  advancing_team_id: string | null
+  home_team: { name: string } | { name: string }[] | null
+  away_team: { name: string } | { name: string }[] | null
+}
+
+function relTeamName(t: BackfillMatchRow['home_team']): string {
+  if (Array.isArray(t)) return t[0]?.name ?? '?'
+  return t?.name ?? '?'
+}
+
+export async function adminBackfillKnockoutRegularTime(): Promise<
+  AdminActionResult & { result?: KnockoutBackfillResult }
+> {
+  try {
+    const supabase = await requireAdmin()
+    const adminId = await getAdminId(supabase)
+
+    const apiToken = process.env.FOOTBALL_DATA_TOKEN
+    if (!apiToken) {
+      return {
+        error:
+          'FOOTBALL_DATA_TOKEN não configurado. Ajuste os placares manualmente na aba Jogos.',
+      }
+    }
+
+    const { data: matchesData, error: matchesError } = await supabase
+      .from('matches')
+      .select(`
+        id, external_id, phase, manually_edited,
+        home_team_id, away_team_id, home_score, away_score, advancing_team_id,
+        home_team:teams!matches_home_team_id_fkey(name),
+        away_team:teams!matches_away_team_id_fkey(name)
+      `)
+      .not('phase', 'eq', 'group')
+      .eq('status', 'finished')
+
+    if (matchesError) return { error: TOAST.genericError }
+
+    const matches = (matchesData ?? []) as unknown as BackfillMatchRow[]
+
+    const result: KnockoutBackfillResult = {
+      corrected: [],
+      needsManual: [],
+      skippedEdited: [],
+      errors: [],
+    }
+
+    if (matches.length === 0) {
+      return {
+        success: true,
+        message: 'Nenhum jogo de mata-mata finalizado para corrigir.',
+        result,
+      }
+    }
+
+    // 1 request: lista completa da competição (cada jogo traz score.regularTime)
+    let apiMatches: Array<Record<string, unknown>> = []
+    try {
+      const res = await fetch(`${FOOTBALL_API_BASE}/competitions/WC/matches`, {
+        headers: { 'X-Auth-Token': apiToken },
+        signal: AbortSignal.timeout(10000),
+      })
+      if (!res.ok) {
+        return { error: `A API retornou ${res.status}. Tente de novo ou ajuste manualmente.` }
+      }
+      const json = (await res.json()) as { matches?: Array<Record<string, unknown>> }
+      apiMatches = json.matches ?? []
+    } catch (e) {
+      return { error: `Falha ao consultar a API: ${String(e)}. Ajuste manualmente.` }
+    }
+
+    const apiById = new Map(
+      apiMatches.map((m) => [String((m as { id: number }).id), m]),
+    )
+
+    for (const m of matches) {
+      const label = `${relTeamName(m.home_team)} × ${relTeamName(m.away_team)}`
+
+      // Preserva edições manuais do admin
+      if (m.manually_edited === true) {
+        result.skippedEdited.push({ match_id: m.id, label })
+        continue
+      }
+
+      const apiMatch = m.external_id ? apiById.get(m.external_id) : undefined
+      if (!apiMatch) {
+        result.needsManual.push({ match_id: m.id, label, reason: 'Jogo não encontrado na API' })
+        continue
+      }
+
+      const score = (apiMatch as { score?: FootballApiScore }).score
+      const rt = regularTimeFromScore(score, true)
+
+      if (rt.home == null || rt.away == null) {
+        result.needsManual.push({
+          match_id: m.id,
+          label,
+          reason: "Prorrogação/pênaltis sem placar dos 90' na API",
+        })
+        continue
+      }
+
+      const upd: { home_score: number; away_score: number; advancing_team_id?: string } = {
+        home_score: rt.home,
+        away_score: rt.away,
+      }
+
+      const winner = score?.winner
+      if (winner === 'HOME_TEAM' && m.home_team_id) upd.advancing_team_id = m.home_team_id
+      else if (winner === 'AWAY_TEAM' && m.away_team_id) upd.advancing_team_id = m.away_team_id
+
+      const { error: updErr } = await supabase.from('matches').update(upd).eq('id', m.id)
+      if (updErr) {
+        result.errors.push(`${label}: ${updErr.message}`)
+        continue
+      }
+
+      const { error: recalcErr } = await supabase.rpc('recalc_match_bets', { p_match_id: m.id })
+      if (recalcErr) {
+        result.errors.push(`${label} (recálculo): ${recalcErr.message}`)
+        continue
+      }
+
+      result.corrected.push({
+        match_id: m.id,
+        label: `${relTeamName(m.home_team)} ${rt.home}–${rt.away} ${relTeamName(m.away_team)}`,
+      })
+    }
+
+    await supabase.from('admin_logs').insert({
+      action: 'backfill_knockout_regular_time',
+      admin_id: adminId,
+      target_table: 'matches',
+      reason: `Placar do tempo regulamentar (mata-mata): ${result.corrected.length} corrigidos, ${result.needsManual.length} p/ revisão manual, ${result.skippedEdited.length} editados preservados`,
+    })
+
+    revalidatePath('/')
+    revalidatePath('/admin')
+    revalidatePath('/mata-mata')
+    revalidatePath('/minhas-apostas')
+
+    return {
+      success: true,
+      message: `${result.corrected.length} jogos corrigidos.`,
+      result,
+    }
   } catch (e) {
     return { error: e instanceof Error ? e.message : TOAST.genericError }
   }

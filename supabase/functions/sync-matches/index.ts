@@ -72,6 +72,39 @@ function advancingFromScore(
   return null
 }
 
+interface ApiScore {
+  winner?: string | null
+  duration?: string | null
+  fullTime?: { home: number | null; away: number | null }
+  regularTime?: { home: number | null; away: number | null } | null
+}
+
+// Placar do TEMPO REGULAMENTAR (90' + acréscimos) — nunca prorrogação/pênaltis.
+// - Mata-mata: usa score.regularTime; se o jogo foi decidido no tempo normal
+//   (duration = REGULAR) o fullTime já é o placar dos 90'. Em prorrogação/
+//   pênaltis sem regularTime disponível, retorna null/null (indeterminado) para
+//   NÃO gravar o placar acumulado errado — fica para correção manual/backfill.
+// - Grupos: nunca há prorrogação, então fullTime == 90'.
+function regularTimeScore(
+  score: ApiScore | undefined,
+  phase: string,
+): { home: number | null; away: number | null } {
+  const ft = score?.fullTime
+  const rt = score?.regularTime
+
+  if (phase !== 'group') {
+    if (rt && rt.home != null && rt.away != null) {
+      return { home: rt.home, away: rt.away }
+    }
+    if (score?.duration === 'REGULAR' && ft) {
+      return { home: ft.home ?? null, away: ft.away ?? null }
+    }
+    return { home: null, away: null }
+  }
+
+  return { home: ft?.home ?? null, away: ft?.away ?? null }
+}
+
 interface SyncResult {
   synced: number
   skipped: number
@@ -134,14 +167,22 @@ Deno.serve(async () => {
   // 3) Buscar estado dos jogos existentes (manually_edited + fase local)
   //    + IDs de times válidos
   const [existingRes, teamsRes] = await Promise.all([
-    supabase.from('matches').select('external_id, manually_edited, phase'),
+    supabase
+      .from('matches')
+      .select('external_id, manually_edited, phase, home_score, away_score, advancing_team_id'),
     supabase.from('teams').select('id'),
   ])
 
   const existingMap = new Map(
     (existingRes.data ?? []).map((m) => [
       m.external_id,
-      { edited: m.manually_edited === true, phase: m.phase as string | null },
+      {
+        edited: m.manually_edited === true,
+        phase: m.phase as string | null,
+        homeScore: m.home_score as number | null,
+        awayScore: m.away_score as number | null,
+        advancingTeamId: m.advancing_team_id as string | null,
+      },
     ]),
   )
 
@@ -153,12 +194,7 @@ Deno.serve(async () => {
       const extId = String((m as { id: number }).id)
       const homeTeam = (m as { homeTeam?: { tla?: string } }).homeTeam
       const awayTeam = (m as { awayTeam?: { tla?: string } }).awayTeam
-      const score = (m as {
-        score?: {
-          winner?: string | null
-          fullTime?: { home: number | null; away: number | null }
-        }
-      }).score
+      const score = (m as { score?: ApiScore }).score
 
       // Sem TLA dos dois times (jogo TBD do mata-mata) → pula
       if (!homeTeam?.tla || !awayTeam?.tla) {
@@ -177,10 +213,10 @@ Deno.serve(async () => {
       const apiPhase = mapPhase((m as { stage: string }).stage)
       const now = new Date().toISOString()
 
-      // Jogo editado manualmente: preserva os campos estruturais corrigidos
-      // (times, fase, kickoff, bracket) mas ainda atualiza o RESULTADO vindo
-      // da API. Só avança o estado (scheduled → live → finished); nunca
-      // reverte status nem apaga placar já registrado.
+      // Jogo editado manualmente: PRESERVA as edições do admin (placar e
+      // avanço não são sobrescritos). Só progride o estado (scheduled → live
+      // → finished) e, se algum campo ainda estiver vazio, preenche a partir
+      // da API (sem clobber). Placar sempre no tempo regulamentar (90').
       if (existing?.edited) {
         if (apiStatus !== 'finished' && apiStatus !== 'live') {
           result.skipped++
@@ -191,12 +227,17 @@ Deno.serve(async () => {
           status: apiStatus,
           last_synced_at: now,
         }
-        if (score?.fullTime?.home != null) update.home_score = score.fullTime.home
-        if (score?.fullTime?.away != null) update.away_score = score.fullTime.away
 
-        // Mata-mata finalizado: registra quem avançou (fase local é a fonte
-        // da verdade, já que a fase da API pode ter sido corrigida à mão).
-        if (apiStatus === 'finished' && existing.phase && existing.phase !== 'group') {
+        // Só preenche placar/avanço se ainda não houver valor manual salvo.
+        const rt = regularTimeScore(score, existing.phase ?? 'group')
+        if (existing.homeScore == null && rt.home != null) update.home_score = rt.home
+        if (existing.awayScore == null && rt.away != null) update.away_score = rt.away
+
+        if (
+          apiStatus === 'finished' &&
+          existing.phase && existing.phase !== 'group' &&
+          existing.advancingTeamId == null
+        ) {
           const adv = advancingFromScore(score?.winner, homeTeam.tla, awayTeam.tla)
           if (adv) update.advancing_team_id = adv
         }
@@ -211,6 +252,9 @@ Deno.serve(async () => {
         continue
       }
 
+      // Placar sempre no tempo regulamentar (90'), nunca prorrogação/pênaltis.
+      const rt = regularTimeScore(score, apiPhase)
+
       const base: Record<string, unknown> = {
         external_id: extId,
         home_team_id: homeTeam.tla,
@@ -220,8 +264,8 @@ Deno.serve(async () => {
         round_number: (m as { matchday: number | null }).matchday ?? null,
         kickoff_at: (m as { utcDate: string }).utcDate,
         status: apiStatus,
-        home_score: score?.fullTime?.home ?? null,
-        away_score: score?.fullTime?.away ?? null,
+        home_score: rt.home,
+        away_score: rt.away,
         last_synced_at: now,
       }
 
