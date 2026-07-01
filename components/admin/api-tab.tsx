@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { RefreshCw, Power, RotateCcw, CheckCircle2, XCircle, Bell, BellOff } from 'lucide-react'
+import { RefreshCw, Power, RotateCcw, CheckCircle2, XCircle, Bell, BellOff, Swords } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AlertDialog } from '@/components/ui/alert-dialog'
@@ -10,8 +10,10 @@ import {
   adminToggleApi,
   adminTriggerSync,
   adminRecalcAllBets,
+  adminBackfillKnockoutRegularTime,
   adminSetBanner,
   adminClearBanner,
+  type KnockoutBackfillResult,
 } from '@/lib/actions/admin'
 import type { BannerConfig, SyncResult, TournamentState } from '@/types'
 import { TournamentTab } from './tournament-tab'
@@ -27,6 +29,7 @@ export function ApiTab({ apiStatus: initialStatus, currentBanner, tournamentStat
   const [isPending, startTransition] = useTransition()
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null)
   const [recalcCount, setRecalcCount] = useState<number | null>(null)
+  const [backfillResult, setBackfillResult] = useState<KnockoutBackfillResult | null>(null)
 
   // Banner
   const [bannerText, setBannerText] = useState(currentBanner?.text ?? '')
@@ -79,6 +82,23 @@ export function ApiTab({ apiStatus: initialStatus, currentBanner, tournamentStat
           available: prev?.available ?? true,
           last_sync: new Date().toISOString(),
         }))
+      }
+    })
+  }
+
+  function handleBackfillKnockout() {
+    startTransition(async () => {
+      const res = await adminBackfillKnockoutRegularTime()
+      if ('error' in res) {
+        toast.error(res.error)
+      } else {
+        const r = (res as { result?: KnockoutBackfillResult }).result ?? null
+        setBackfillResult(r)
+        toast.success(
+          r
+            ? `${r.corrected.length} corrigidos · ${r.needsManual.length} p/ revisão manual`
+            : res.message ?? 'Correção concluída.',
+        )
       }
     })
   }
@@ -203,6 +223,83 @@ export function ApiTab({ apiStatus: initialStatus, currentBanner, tournamentStat
           <p className="text-xs text-green-600">
             ✅ {recalcCount} palpites recalculados com sucesso.
           </p>
+        )}
+      </div>
+
+      {/* Corrigir placares do mata-mata (tempo regulamentar) */}
+      <div className="border border-[var(--border)] rounded-lg p-4 space-y-3">
+        <div>
+          <p className="font-medium text-sm flex items-center gap-2">
+            <Swords className="w-4 h-4" />
+            Corrigir placares do mata-mata
+          </p>
+          <p className="text-xs text-[var(--text-secondary)]">
+            Rebusca o placar do <strong>tempo regulamentar (90&apos;)</strong> na API para
+            todos os jogos de mata-mata finalizados, registra quem avançou e recalcula os
+            pontos. Ignora prorrogação e pênaltis. Preserva jogos editados à mão.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={handleBackfillKnockout}
+          disabled={isPending || !status?.available}
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className={`w-4 h-4 ${isPending ? 'animate-spin' : ''}`} />
+          Corrigir placares do mata-mata
+        </Button>
+        {!status?.available && (
+          <p className="text-xs text-[var(--text-secondary)]">
+            A API está desligada. Ligue-a para rebuscar os placares, ou ajuste cada jogo na aba Jogos.
+          </p>
+        )}
+
+        {backfillResult && (
+          <div className="text-xs space-y-2 bg-[var(--bg-surface)] rounded p-3">
+            <p>✅ Corrigidos: <strong>{backfillResult.corrected.length}</strong></p>
+            {backfillResult.corrected.length > 0 && (
+              <ul className="ml-4 list-disc space-y-0.5 text-[var(--text-secondary)]">
+                {backfillResult.corrected.map((m) => (
+                  <li key={m.match_id}>{m.label}</li>
+                ))}
+              </ul>
+            )}
+
+            {backfillResult.needsManual.length > 0 && (
+              <div>
+                <p className="text-yellow-700">
+                  ⚠️ Ajustar manualmente na aba Jogos ({backfillResult.needsManual.length}):
+                </p>
+                <ul className="ml-4 list-disc space-y-0.5 text-yellow-700">
+                  {backfillResult.needsManual.map((m) => (
+                    <li key={m.match_id}>{m.label} — {m.reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {backfillResult.skippedEdited.length > 0 && (
+              <div>
+                <p className="text-[var(--text-secondary)]">
+                  ✋ Editados à mão (preservados) ({backfillResult.skippedEdited.length}):
+                </p>
+                <ul className="ml-4 list-disc space-y-0.5 text-[var(--text-secondary)]">
+                  {backfillResult.skippedEdited.map((m) => (
+                    <li key={m.match_id}>{m.label}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {backfillResult.errors.length > 0 && (
+              <div>
+                <p className="text-red-500">❌ Erros ({backfillResult.errors.length}):</p>
+                {backfillResult.errors.map((e, i) => (
+                  <p key={i} className="text-red-400 font-mono text-xs">{e}</p>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

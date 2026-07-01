@@ -272,13 +272,28 @@ Total: 4+3+10+18+13 = **48 seleções**.
 ### 5.5 Regras da Fase de Mata-Mata
 
 1. O jogador palpita placar nos 90 min + qual time avança (dois campos separados na UI).
-2. Pontuação:
-   - Acertou placar exato dos 90 min → 2 pts base.
-   - Errou placar mas acertou quem avança na chave (independente se foi nos 90, prorrogação ou pênaltis) → 1 pt base.
-   - Errou ambos → 0 pts.
-3. Multiplicação pela odd igual à fase de grupos.
-4. Deadline também 1 hora antes do kickoff de cada jogo.
-5. Cada rodada é liberada para palpite somente após o término da rodada anterior (16-avos → oitavas → quartas → semis → final).
+2. **Placar considerado = SOMENTE o tempo regulamentar (90 min + acréscimos).**
+   Prorrogação e pênaltis **nunca** entram no placar exibido nem na pontuação.
+   Quem avança na chave é decidido pelo resultado real da eliminatória
+   (aí sim considera prorrogação/pênaltis) e é registrado à parte
+   (`matches.advancing_team_id`, vindo de `score.winner` da football-data.org).
+3. Pontuação (os dois prêmios abaixo **SOMAM** — exceção à regra "não somam" da fase de grupos):
+   - **Avanço:** acertou quem avança na chave → **+1 ponto fixo** (sem odd).
+   - **Placar exato dos 90 min:** cravou o placar do tempo regulamentar → **+2 × odd**,
+     e **só conta se também acertou quem avança**.
+   - Total possível por jogo: `1 (avanço) + 2×odd (placar)`.
+   - Placar exato com avanço errado → **0** (o placar sozinho não pontua no mata-mata).
+   - `base_points` continua indicando o status: `2` = acertou placar (+avanço),
+     `1` = acertou só quem avança, `0` = errou. O empilhamento fica em `total_points`.
+
+   > Exemplo: deu **1×1** nos 90 min e **Paraguai** avançou (pênaltis), odd de empate = 2,50.
+   > - Palpite `1×1 · Paraguai` → `1 + 2×2,50 = 6,0 pts`.
+   > - Palpite `1×1 · Alemanha` (avanço errado) → `0`.
+   > - Palpite `2×0 · Paraguai` (só o avanço) → `1,0`.
+4. A odd é a mesma mecânica da fase de grupos: vem do resultado 1×2 do placar dos 90 min
+   (um jogo empatado nos 90' usa a odd de empate do confronto).
+5. Deadline também 1 hora antes do kickoff de cada jogo.
+6. Cada rodada é liberada para palpite somente após o término da rodada anterior (16-avos → oitavas → quartas → semis → final).
 
 ### 5.6 Rebalanceamento de Tier
 

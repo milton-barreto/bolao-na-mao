@@ -1,9 +1,15 @@
 import { getOdd, type MatchResult } from './odds'
 
 export interface ScorePreview {
-  /** Pontos se acertar placar exato */
+  /**
+   * Grupos: pontos ao cravar o placar exato (2×odd).
+   * Mata-mata: pontos ao cravar o placar E acertar quem avança (1 + 2×odd).
+   */
   ifExact: number
-  /** Pontos se acertar apenas o resultado (vitória/empate) */
+  /**
+   * Grupos: pontos ao acertar apenas o resultado (1×odd).
+   * Mata-mata: pontos ao acertar apenas quem avança (1 fixo).
+   */
   ifResult: number
   /** Odd aplicada ao confronto */
   odd: number
@@ -13,12 +19,16 @@ export interface ScorePreview {
  * Calcula o preview de pontos para a UI (§5.4 ponto 4 do briefing).
  * Usado APENAS para exibição — nunca persista este valor.
  * O cálculo canônico é feito pelo SQL após o jogo finalizar.
+ *
+ * Mata-mata (isKnockout): avanço = 1 ponto fixo; placar exato = 2×odd, e
+ * os dois somam (o placar exige acertar quem avança). Ver §5.5.
  */
 export function previewPoints(
   homeTier: number,
   awayTier: number,
   predictedHome: number,
   predictedAway: number,
+  isKnockout = false,
 ): ScorePreview {
   const result: MatchResult =
     predictedHome > predictedAway
@@ -28,6 +38,14 @@ export function previewPoints(
         : 'draw'
 
   const odd = getOdd(homeTier, awayTier, result)
+
+  if (isKnockout) {
+    return {
+      ifExact: parseFloat((1 + 2 * odd).toFixed(2)), // avanço (1) + placar exato (2×odd)
+      ifResult: 1, // só quem avança (fixo, sem odd)
+      odd,
+    }
+  }
 
   return {
     ifExact: parseFloat((2 * odd).toFixed(2)),

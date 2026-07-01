@@ -6,7 +6,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import type { Json } from '@/lib/supabase/types'
 import type { GoldenTicket, GoldenTicketPredictions } from '@/types'
 import type { TournamentState } from '@/lib/constants'
-import { TICKET_EDIT_DEADLINE } from '@/lib/constants'
+import { getTicketEditDeadline } from '@/lib/constants'
 
 // =============================================================
 // GET GOLDEN TICKET
@@ -45,8 +45,15 @@ export async function saveGoldenTicket(
   } = await supabase.auth.getUser()
   if (authError || !user) return { error: 'Faz login primeiro.' }
 
-  // Verifica deadline temporal
-  if (new Date() >= TICKET_EDIT_DEADLINE) {
+  // Busca o nome do usuário para aplicar exceções de deadline (ex.: Jovito)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('name')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  // Verifica deadline temporal (pode ser estendido para usuários específicos)
+  if (new Date() >= getTicketEditDeadline(profile?.name)) {
     return { error: 'Prazo encerrado. O bilhete está travado. 🙏' }
   }
 

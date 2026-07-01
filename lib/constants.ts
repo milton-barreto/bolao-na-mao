@@ -66,6 +66,23 @@ export function isKnockoutPhase(state: TournamentState): boolean {
 // Deadline para preencher/alterar o bilhete: 29/06/2026 às 15:00 (Fortaleza = UTC-3 = 18:00 UTC)
 export const TICKET_EDIT_DEADLINE = new Date('2026-06-29T18:00:00.000Z')
 
+// Exceção liberada manualmente: o usuário Jovito pode editar até 29/06/2026 às 23:59
+// (Fortaleza = UTC-3 = 30/06 02:59 UTC). Após isso volta a travar para ele também.
+// Match por inclusão (case-insensitive) para cobrir nome com sobrenome.
+const TICKET_EDIT_DEADLINE_OVERRIDES: { match: string; deadline: Date }[] = [
+  { match: 'jovito', deadline: new Date('2026-06-30T03:00:00.000Z') },
+]
+
+/** Retorna o deadline de edição do bilhete para um dado nome de usuário. */
+export function getTicketEditDeadline(userName?: string | null): Date {
+  const name = userName?.trim().toLowerCase()
+  if (name) {
+    const override = TICKET_EDIT_DEADLINE_OVERRIDES.find((o) => name.includes(o.match))
+    if (override) return override.deadline
+  }
+  return TICKET_EDIT_DEADLINE
+}
+
 export function isTicketEditable(_state: TournamentState): boolean {
   return new Date() < TICKET_EDIT_DEADLINE
 }

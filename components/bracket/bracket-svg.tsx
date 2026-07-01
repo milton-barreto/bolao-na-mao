@@ -71,6 +71,8 @@ interface BracketSVGProps {
   r32Matches: MatchWithTeams[]
   initial: GoldenTicketPredictions | null
   readOnly?: boolean
+  /** Deadline efetivo de edição (pode ser estendido para usuários específicos). */
+  editDeadline?: Date
   actualResults?: {
     phase: Phase
     advancing_team_id: string
@@ -81,12 +83,13 @@ export function BracketSVG({
   r32Matches,
   initial,
   readOnly = false,
+  editDeadline = TICKET_EDIT_DEADLINE,
   actualResults = [],
 }: BracketSVGProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
-  const isBeforeDeadline = new Date() < TICKET_EDIT_DEADLINE
+  const isBeforeDeadline = new Date() < editDeadline
   const effectiveReadOnly = readOnly || !isEditing
 
   const handleSaveAction = useCallback(
@@ -509,7 +512,7 @@ export function BracketSVG({
           )
         ) : !isBeforeDeadline ? (
           <p className="text-sm text-muted-foreground text-center">
-            Prazo encerrado em {formatKickoff(TICKET_EDIT_DEADLINE)}. Torce e reza. 🙏
+            Prazo encerrado em {formatKickoff(editDeadline)}. Torce e reza. 🙏
           </p>
         ) : null}
       </div>
