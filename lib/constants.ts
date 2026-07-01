@@ -63,15 +63,13 @@ export function isKnockoutPhase(state: TournamentState): boolean {
   return state !== 'group'
 }
 
-// Deadline para preencher/alterar o bilhete: 29/06/2026 às 15:00 (Fortaleza = UTC-3 = 18:00 UTC)
-export const TICKET_EDIT_DEADLINE = new Date('2026-06-29T18:00:00.000Z')
+// Deadline para preencher/alterar o bilhete: liberado para TODOS até 01/07/2026
+// às 21:00 (Fortaleza = UTC-3 = 02/07 00:00 UTC). Após isso trava automaticamente.
+export const TICKET_EDIT_DEADLINE = new Date('2026-07-02T00:00:00.000Z')
 
-// Exceção liberada manualmente: o usuário Jovito pode editar até 29/06/2026 às 23:59
-// (Fortaleza = UTC-3 = 30/06 02:59 UTC). Após isso volta a travar para ele também.
+// Exceções de deadline por usuário (nome). Vazio: todos usam o deadline padrão.
 // Match por inclusão (case-insensitive) para cobrir nome com sobrenome.
-const TICKET_EDIT_DEADLINE_OVERRIDES: { match: string; deadline: Date }[] = [
-  { match: 'jovito', deadline: new Date('2026-06-30T03:00:00.000Z') },
-]
+const TICKET_EDIT_DEADLINE_OVERRIDES: { match: string; deadline: Date }[] = []
 
 /** Retorna o deadline de edição do bilhete para um dado nome de usuário. */
 export function getTicketEditDeadline(userName?: string | null): Date {
