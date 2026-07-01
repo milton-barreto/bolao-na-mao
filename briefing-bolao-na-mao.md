@@ -277,19 +277,21 @@ Total: 4+3+10+18+13 = **48 seleções**.
    Quem avança na chave é decidido pelo resultado real da eliminatória
    (aí sim considera prorrogação/pênaltis) e é registrado à parte
    (`matches.advancing_team_id`, vindo de `score.winner` da football-data.org).
-3. Pontuação (os dois prêmios abaixo **SOMAM** — exceção à regra "não somam" da fase de grupos):
-   - **Avanço:** acertou quem avança na chave → **+1 ponto fixo** (sem odd).
-   - **Placar exato dos 90 min:** cravou o placar do tempo regulamentar → **+2 × odd**,
-     e **só conta se também acertou quem avança**.
-   - Total possível por jogo: `1 (avanço) + 2×odd (placar)`.
-   - Placar exato com avanço errado → **0** (o placar sozinho não pontua no mata-mata).
+3. Pontuação (o valor do avanço depende de o placar também estar certo):
+   - **Placar exato dos 90 min + avanço certo:** cravou o placar do tempo
+     regulamentar **e** acertou quem avança → **1 (fixo) + 2 × odd** (somam).
+   - **Só o avanço (placar errado):** acertou quem avança mas errou o placar
+     → **1 × odd** (mesma mecânica de resultado da fase de grupos).
+   - **Placar exato com avanço errado → 0** (o placar sozinho não pontua no mata-mata).
+   - Errou tudo → `0`.
    - `base_points` continua indicando o status: `2` = acertou placar (+avanço),
-     `1` = acertou só quem avança, `0` = errou. O empilhamento fica em `total_points`.
+     `1` = acertou só quem avança, `0` = errou. O mapeamento fica em `total_points`.
 
    > Exemplo: deu **1×1** nos 90 min e **Paraguai** avançou (pênaltis), odd de empate = 2,50.
-   > - Palpite `1×1 · Paraguai` → `1 + 2×2,50 = 6,0 pts`.
+   > - Palpite `1×1 · Paraguai` (placar + avanço) → `1 + 2×2,50 = 6,0 pts`.
    > - Palpite `1×1 · Alemanha` (avanço errado) → `0`.
-   > - Palpite `2×0 · Paraguai` (só o avanço) → `1,0`.
+   > - Palpite `2×0 · Paraguai` (só o avanço, placar errado) → `1×2,50 = 2,5 pts`
+   >   (a odd é sempre a do resultado real dos 90' — aqui, empate).
 4. A odd é a mesma mecânica da fase de grupos: vem do resultado 1×2 do placar dos 90 min
    (um jogo empatado nos 90' usa a odd de empate do confronto).
 5. Deadline também 1 hora antes do kickoff de cada jogo.

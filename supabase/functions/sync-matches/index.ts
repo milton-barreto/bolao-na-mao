@@ -77,32 +77,58 @@ interface ApiScore {
   duration?: string | null
   fullTime?: { home: number | null; away: number | null }
   regularTime?: { home: number | null; away: number | null } | null
+  extraTime?: { home: number | null; away: number | null } | null
+  penalties?: { home: number | null; away: number | null } | null
 }
 
 // Placar do TEMPO REGULAMENTAR (90' + acréscimos) — nunca prorrogação/pênaltis.
-// - Mata-mata: usa score.regularTime; se o jogo foi decidido no tempo normal
-//   (duration = REGULAR) o fullTime já é o placar dos 90'. Em prorrogação/
-//   pênaltis sem regularTime disponível, retorna null/null (indeterminado) para
-//   NÃO gravar o placar acumulado errado — fica para correção manual/backfill.
 // - Grupos: nunca há prorrogação, então fullTime == 90'.
+// - Mata-mata: a football-data é inconsistente — já reportou duration='REGULAR'
+//   COM gol de prorrogação (bug visto em BEL×SEN), e o fullTime pode incluir
+//   prorrogação e/ou pênaltis. Ordem de confiança para recuperar os 90':
+//   1) score.regularTime, quando presente (fonte direta e definitiva).
+//   2) Houve prorrogação (extraTime) e SEM pênaltis: 90' = fullTime − extraTime
+//      (o fullTime inclui a prorrogação; sem pênaltis a subtração é exata).
+//   3) Só então, sem NENHUM sinal de prorrogação/pênaltis: fullTime é o 90'.
+//   4) Caso contrário (foi além dos 90' sem dados suficientes p/ isolar):
+//      indeterminado (null), para não gravar placar acumulado errado — fica
+//      para correção manual/backfill.
 function regularTimeScore(
   score: ApiScore | undefined,
   phase: string,
 ): { home: number | null; away: number | null } {
   const ft = score?.fullTime
   const rt = score?.regularTime
+  const et = score?.extraTime
+  const pk = score?.penalties
 
-  if (phase !== 'group') {
-    if (rt && rt.home != null && rt.away != null) {
-      return { home: rt.home, away: rt.away }
-    }
-    if (score?.duration === 'REGULAR' && ft) {
-      return { home: ft.home ?? null, away: ft.away ?? null }
-    }
-    return { home: null, away: null }
+  if (phase === 'group') {
+    return { home: ft?.home ?? null, away: ft?.away ?? null }
   }
 
-  return { home: ft?.home ?? null, away: ft?.away ?? null }
+  // 1) regularTime explícito é sempre o mais confiável para os 90'.
+  if (rt && rt.home != null && rt.away != null) {
+    return { home: rt.home, away: rt.away }
+  }
+
+  const hasExtra = et != null && et.home != null && et.away != null
+  const hasPens = pk != null && pk.home != null && pk.away != null
+
+  // 2) Prorrogação sem pênaltis: subtrai a prorrogação do fullTime.
+  if (hasExtra && !hasPens && ft && ft.home != null && ft.away != null) {
+    return { home: ft.home - et.home!, away: ft.away - et.away! }
+  }
+
+  // 3) Decidido no tempo normal (sem prorrogação nem pênaltis): fullTime = 90'.
+  if (
+    score?.duration === 'REGULAR' && !hasExtra && !hasPens &&
+    ft && ft.home != null && ft.away != null
+  ) {
+    return { home: ft.home, away: ft.away }
+  }
+
+  // 4) Além dos 90' sem dados suficientes → indeterminado.
+  return { home: null, away: null }
 }
 
 interface SyncResult {

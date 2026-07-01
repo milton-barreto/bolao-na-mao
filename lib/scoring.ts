@@ -8,7 +8,7 @@ export interface ScorePreview {
   ifExact: number
   /**
    * Grupos: pontos ao acertar apenas o resultado (1×odd).
-   * Mata-mata: pontos ao acertar apenas quem avança (1 fixo).
+   * Mata-mata: pontos ao acertar apenas quem avança, com placar errado (1×odd).
    */
   ifResult: number
   /** Odd aplicada ao confronto */
@@ -20,8 +20,8 @@ export interface ScorePreview {
  * Usado APENAS para exibição — nunca persista este valor.
  * O cálculo canônico é feito pelo SQL após o jogo finalizar.
  *
- * Mata-mata (isKnockout): avanço = 1 ponto fixo; placar exato = 2×odd, e
- * os dois somam (o placar exige acertar quem avança). Ver §5.5.
+ * Mata-mata (isKnockout): placar exato + avanço = 1 fixo + 2×odd; só avanço
+ * (placar errado) = 1×odd; placar exato com avanço errado = 0. Ver §5.5.
  */
 export function previewPoints(
   homeTier: number,
@@ -41,8 +41,8 @@ export function previewPoints(
 
   if (isKnockout) {
     return {
-      ifExact: parseFloat((1 + 2 * odd).toFixed(2)), // avanço (1) + placar exato (2×odd)
-      ifResult: 1, // só quem avança (fixo, sem odd)
+      ifExact: parseFloat((1 + 2 * odd).toFixed(2)), // avanço (1 fixo) + placar exato (2×odd)
+      ifResult: parseFloat(odd.toFixed(2)), // só quem avança, placar errado (1×odd)
       odd,
     }
   }
